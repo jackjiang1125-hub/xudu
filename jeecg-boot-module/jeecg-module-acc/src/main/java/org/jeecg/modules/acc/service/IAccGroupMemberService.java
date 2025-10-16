@@ -24,4 +24,18 @@ public interface IAccGroupMemberService extends JeecgService<AccGroupMember> {
      * @return 成员ID列表
      */
     List<String> listMemberIdsByGroupId(String groupId);
+
+    /**
+     * 批量添加成员到权限组
+     * @param groupId 权限组ID
+     * @param memberIds 成员ID列表
+     */
+    void addMembers(String groupId, List<String> memberIds);
+
+    /**
+     * 批量从权限组移除成员
+     * @param groupId 权限组ID
+     * @param memberIds 成员ID列表
+     */
+    void removeMembers(String groupId, List<String> memberIds);
 }

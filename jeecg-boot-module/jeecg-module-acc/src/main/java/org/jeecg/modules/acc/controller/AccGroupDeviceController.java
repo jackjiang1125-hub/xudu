@@ -9,6 +9,7 @@ import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.modules.acc.entity.AccGroupDevice;
 import org.jeecg.modules.acc.service.IAccGroupDeviceService;
 import org.jeecg.modules.acc.vo.AccDeviceVO;
+import org.jeecg.modules.acc.vo.BindIdsRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,5 +45,25 @@ public class AccGroupDeviceController extends JeecgController<AccGroupDevice, IA
     public Result<java.util.List<String>> listIdsByGroup(@RequestParam String groupId) {
         java.util.List<String> deviceIds = accGroupDeviceService.listDeviceIdsByGroupId(groupId);
         return Result.OK(deviceIds);
+    }
+
+    /**
+     * 批量添加设备到权限组
+     */
+    @PostMapping("/addDevices")
+    @Operation(summary = "批量添加设备到权限组")
+    public Result<String> addDevices(@RequestBody BindIdsRequest request) {
+        accGroupDeviceService.addDevices(request.getGroupId(), request.getIds());
+        return Result.OK("添加成功");
+    }
+
+    /**
+     * 批量从权限组移除设备
+     */
+    @PostMapping("/removeDevices")
+    @Operation(summary = "批量从权限组移除设备")
+    public Result<String> removeDevices(@RequestBody BindIdsRequest request) {
+        accGroupDeviceService.removeDevices(request.getGroupId(), request.getIds());
+        return Result.OK("移除成功");
     }
 }

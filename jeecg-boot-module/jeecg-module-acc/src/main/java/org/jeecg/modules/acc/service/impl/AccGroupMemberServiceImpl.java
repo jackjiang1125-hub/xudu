@@ -13,6 +13,7 @@ import org.jeecg.modules.acc.service.IAccGroupMemberService;
 import org.jeecg.modules.acc.vo.AccMemberVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -110,6 +111,42 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
         return groupMembers.stream()
                 .map(AccGroupMember::getMemberId)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addMembers(String groupId, List<String> memberIds) {
+        if (groupId == null || memberIds == null || memberIds.isEmpty()) return;
+
+        // 查询已存在的成员，避免重复
+        QueryWrapper<AccGroupMember> qw = new QueryWrapper<>();
+        qw.eq("group_id", groupId).in("member_id", memberIds);
+        List<AccGroupMember> exists = this.list(qw);
+        Set<String> existedIds = exists.stream().map(AccGroupMember::getMemberId).collect(Collectors.toSet());
+
+        List<AccGroupMember> toSave = memberIds.stream()
+                .filter(id -> id != null && !id.trim().isEmpty())
+                .filter(id -> !existedIds.contains(id))
+                .map(id -> {
+                    AccGroupMember gm = new AccGroupMember();
+                    gm.setGroupId(groupId);
+                    gm.setMemberId(id);
+                    return gm;
+                })
+                .collect(Collectors.toList());
+
+        if (!toSave.isEmpty()) {
+            this.saveBatch(toSave);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeMembers(String groupId, List<String> memberIds) {
+        if (groupId == null || memberIds == null || memberIds.isEmpty()) return;
+        QueryWrapper<AccGroupMember> qw = new QueryWrapper<>();
+        qw.eq("group_id", groupId).in("member_id", memberIds);
+        this.remove(qw);
     }
 
     private static String nullToEmpty(String s) {

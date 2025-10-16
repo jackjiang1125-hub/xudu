@@ -9,6 +9,7 @@ import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.modules.acc.entity.AccGroupMember;
 import org.jeecg.modules.acc.service.IAccGroupMemberService;
 import org.jeecg.modules.acc.vo.AccMemberVO;
+import org.jeecg.modules.acc.vo.BindIdsRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,5 +45,25 @@ public class AccGroupMemberController extends JeecgController<AccGroupMember, IA
     public Result<java.util.List<String>> listIdsByGroup(@RequestParam String groupId) {
         java.util.List<String> memberIds = accGroupMemberService.listMemberIdsByGroupId(groupId);
         return Result.OK(memberIds);
+    }
+
+    /**
+     * 批量添加成员到权限组
+     */
+    @PostMapping("/addMembers")
+    @Operation(summary = "批量添加成员到权限组")
+    public Result<String> addMembers(@RequestBody BindIdsRequest request) {
+        accGroupMemberService.addMembers(request.getGroupId(), request.getIds());
+        return Result.OK("添加成功");
+    }
+
+    /**
+     * 批量从权限组移除成员
+     */
+    @PostMapping("/removeMembers")
+    @Operation(summary = "批量从权限组移除成员")
+    public Result<String> removeMembers(@RequestBody BindIdsRequest request) {
+        accGroupMemberService.removeMembers(request.getGroupId(), request.getIds());
+        return Result.OK("移除成功");
     }
 }

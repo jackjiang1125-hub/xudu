@@ -24,4 +24,18 @@ public interface IAccGroupDeviceService extends JeecgService<AccGroupDevice> {
      * @return 设备ID列表
      */
     List<String> listDeviceIdsByGroupId(String groupId);
+
+    /**
+     * 批量添加设备到权限组
+     * @param groupId 权限组ID
+     * @param deviceIds 设备ID列表
+     */
+    void addDevices(String groupId, List<String> deviceIds);
+
+    /**
+     * 批量从权限组移除设备
+     * @param groupId 权限组ID
+     * @param deviceIds 设备ID列表
+     */
+    void removeDevices(String groupId, List<String> deviceIds);
 }

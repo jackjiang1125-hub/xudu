@@ -12,6 +12,7 @@ import org.jeecg.modules.acc.service.IAccGroupDeviceService;
 import org.jeecg.modules.acc.vo.AccDeviceVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,5 +75,41 @@ public class AccGroupDeviceServiceImpl extends ServiceImpl<AccGroupDeviceMapper,
         return groupDevices.stream()
                 .map(AccGroupDevice::getDeviceId)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void addDevices(String groupId, List<String> deviceIds) {
+        if (groupId == null || deviceIds == null || deviceIds.isEmpty()) return;
+
+        // 查询已存在的设备，避免重复
+        QueryWrapper<AccGroupDevice> qw = new QueryWrapper<>();
+        qw.eq("group_id", groupId).in("device_id", deviceIds);
+        List<AccGroupDevice> exists = this.list(qw);
+        java.util.Set<String> existedIds = exists.stream().map(AccGroupDevice::getDeviceId).collect(java.util.stream.Collectors.toSet());
+
+        List<AccGroupDevice> toSave = deviceIds.stream()
+                .filter(id -> id != null && !id.trim().isEmpty())
+                .filter(id -> !existedIds.contains(id))
+                .map(id -> {
+                    AccGroupDevice gd = new AccGroupDevice();
+                    gd.setGroupId(groupId);
+                    gd.setDeviceId(id);
+                    return gd;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        if (!toSave.isEmpty()) {
+            this.saveBatch(toSave);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeDevices(String groupId, List<String> deviceIds) {
+        if (groupId == null || deviceIds == null || deviceIds.isEmpty()) return;
+        QueryWrapper<AccGroupDevice> qw = new QueryWrapper<>();
+        qw.eq("group_id", groupId).in("device_id", deviceIds);
+        this.remove(qw);
     }
 }
