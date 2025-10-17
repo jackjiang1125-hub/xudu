@@ -75,7 +75,11 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
     @Override
     public AccDeviceVO getById(String id) {
-        return null;
+        if (StringUtils.isBlank(id)) {
+            return null;
+        }
+        AccDevice entity = super.getById(id);
+        return accDeviceMapstruct.toAccDeviceVO(entity);
     }
 
     @Override
@@ -90,22 +94,53 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
     @Override
     public AccDeviceVO save(AccDeviceVO deviceVO) {
-        return null;
+        if (deviceVO == null) {
+            return null;
+        }
+        AccDevice entity = accDeviceMapstruct.toAccDevice(deviceVO);
+        // 默认设备类型
+        if (StringUtils.isBlank(entity.getDeviceType())) {
+            entity.setDeviceType("acc");
+        }
+        // 默认授权状态
+        if (entity.getAuthorized() == null) {
+            entity.setAuthorized(Boolean.FALSE);
+        }
+        this.save(entity);
+        return accDeviceMapstruct.toAccDeviceVO(entity);
     }
 
     @Override
     public AccDeviceVO update(AccDeviceVO deviceVO) {
-        return null;
+        if (deviceVO == null || StringUtils.isBlank(deviceVO.getId())) {
+            return null;
+        }
+        AccDevice entity = accDeviceMapstruct.toAccDevice(deviceVO);
+        this.updateById(entity);
+        AccDevice latest = super.getById(entity.getId());
+        return accDeviceMapstruct.toAccDeviceVO(latest);
     }
 
     @Override
     public boolean deleteById(String id) {
-        return false;
+        if (StringUtils.isBlank(id)) {
+            return false;
+        }
+        return this.removeById(id);
     }
 
     @Override
     public boolean deleteBatch(String[] ids) {
-        return false;
+        if (ids == null || ids.length == 0) {
+            return false;
+        }
+        java.util.List<String> idList = java.util.Arrays.stream(ids)
+                .filter(org.apache.commons.lang3.StringUtils::isNotBlank)
+                .collect(java.util.stream.Collectors.toList());
+        if (idList.isEmpty()) {
+            return false;
+        }
+        return this.removeByIds(idList);
     }
 
 

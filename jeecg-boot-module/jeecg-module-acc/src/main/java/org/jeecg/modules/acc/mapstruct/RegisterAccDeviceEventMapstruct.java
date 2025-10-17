@@ -9,5 +9,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface RegisterAccDeviceEventMapstruct {
 
+    @Mapping(target = "deviceType", constant = "acc")
     AccDevice toAccDevice(RegisterAccDeviceEvent registerAccDeviceEvent);
 }

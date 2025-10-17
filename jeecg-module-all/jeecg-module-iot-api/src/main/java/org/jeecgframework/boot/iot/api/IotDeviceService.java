@@ -12,4 +12,11 @@ public interface IotDeviceService  {
 
     PageResult<IotDeviceVO> list(IotDeviceQuery iotDeviceQuery,PageRequest pageRequest, Map<String,String[]> queryParam);
 
+    /**
+     * 根据设备序列号查询iot设备的完整详情
+     * @param sn 设备序列号
+     * @return 设备详情（不存在返回null）
+     */
+    IotDeviceVO getBySn(String sn);
+
 }

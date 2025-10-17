@@ -2,6 +2,8 @@ package org.jeecg.modules.iot.device.service.impl;
 
 
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.apache.commons.lang3.StringUtils;
 
 import org.jeecg.modules.iot.device.entity.IotDevice;
 
@@ -38,6 +40,17 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
                 iotDeviceMapstruct::toIotDeviceVO
               //  ,qw -> qw.orderByDesc("create_time") //带排序
                 );
+    }
+
+    @Override
+    public IotDeviceVO getBySn(String sn) {
+        if (StringUtils.isBlank(sn)) {
+            return null;
+        }
+        LambdaQueryWrapper<IotDevice> qw = new LambdaQueryWrapper<>();
+        qw.eq(IotDevice::getSn, sn).last("limit 1");
+        IotDevice entity = this.getOne(qw, false);
+        return entity == null ? null : iotDeviceMapstruct.toIotDeviceVO(entity);
     }
 
 }
