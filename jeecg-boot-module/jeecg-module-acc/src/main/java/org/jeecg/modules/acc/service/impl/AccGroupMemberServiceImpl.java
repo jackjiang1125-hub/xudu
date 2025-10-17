@@ -5,12 +5,11 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.jeecg.modules.acc.entity.AccGroupMember;
-import org.jeecg.modules.acc.entity.SysUserLite;
 import org.jeecg.modules.acc.mapper.AccGroupMemberMapper;
-import org.jeecg.modules.acc.mapper.SysDepartLiteMapper;
-import org.jeecg.modules.acc.mapper.SysUserLiteMapper;
 import org.jeecg.modules.acc.service.IAccGroupMemberService;
 import org.jeecg.modules.acc.vo.AccMemberVO;
+import org.jeecgframework.boot.system.api.SystemUserService;
+import org.jeecgframework.boot.system.vo.UserLiteVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,11 +25,8 @@ import java.util.stream.Collectors;
 @Service
 public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper, AccGroupMember> implements IAccGroupMemberService {
 
-    @Autowired
-    private SysUserLiteMapper sysUserLiteMapper;
-
-    @Autowired
-    private SysDepartLiteMapper sysDepartLiteMapper;
+    @Autowired(required = false)
+    private SystemUserService systemUserService;
 
     @Override
     public IPage<AccMemberVO> listMembersByGroupId(String groupId, Integer pageNo, Integer pageSize) {
@@ -40,25 +36,23 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
         // 使用本服务的轻量级Mapper填充用户信息（先按ID，再按用户名）
         List<AccMemberVO> memberVOs = new ArrayList<>();
         if (!memberIds.isEmpty()) {
-            // 1) 按 ID 批量查询
-            List<SysUserLite> byIds = sysUserLiteMapper.selectBatchIds(memberIds);
-            Map<String, SysUserLite> idMap = byIds == null ? Collections.emptyMap() : byIds.stream()
-                    .collect(Collectors.toMap(SysUserLite::getId, u -> u, (a, b) -> a));
+            // 1) 按 ID 批量查询（通过 system-api 接口）
+            List<UserLiteVO> byIds = systemUserService.queryUsersByIds(memberIds.toArray(new String[0]));
+            Map<String, UserLiteVO> idMap = byIds == null ? Collections.emptyMap() : byIds.stream()
+                    .collect(Collectors.toMap(UserLiteVO::getId, u -> u, (a, b) -> a));
 
-            // 2) 未命中的作为可能的用户名再次查询
+            // 2) 未命中的作为可能的用户名再次查询（通过 system-api 接口）
             Set<String> missing = new HashSet<>(memberIds);
             missing.removeAll(idMap.keySet());
-            List<SysUserLite> byNames = new ArrayList<>();
+            List<UserLiteVO> byNames = new ArrayList<>();
             if (!missing.isEmpty()) {
-                QueryWrapper<SysUserLite> qw = new QueryWrapper<>();
-                qw.in("username", missing);
-                byNames = sysUserLiteMapper.selectList(qw);
+                byNames = systemUserService.queryUsersByUsernames(missing.toArray(new String[0]));
             }
-            Map<String, SysUserLite> nameMap = byNames.stream().collect(Collectors.toMap(SysUserLite::getUsername, u -> u, (a, b) -> a));
+            Map<String, UserLiteVO> nameMap = byNames.stream().collect(Collectors.toMap(UserLiteVO::getUsername, u -> u, (a, b) -> a));
 
             // 3) 组装 VO
             for (String memberId : memberIds) {
-                SysUserLite u = idMap.get(memberId);
+                UserLiteVO u = idMap.get(memberId);
                 if (u == null) {
                     u = nameMap.get(memberId);
                 }
@@ -72,7 +66,7 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
 
                 String deptName = "";
                 if (u != null && u.getOrgCode() != null) {
-                    String dn = sysDepartLiteMapper.getDepartNameByOrgCode(u.getOrgCode());
+                    String dn = systemUserService.getDepartNameByOrgCode(u.getOrgCode());
                     deptName = nullToEmpty(dn);
                 }
 

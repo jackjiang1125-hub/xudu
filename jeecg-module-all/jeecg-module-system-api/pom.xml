@@ -2,26 +2,27 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>jeecg-system-api</artifactId>
-        <groupId>org.jeecgframework.boot</groupId>
-        <version>3.8.2</version>
-    </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>jeecg-system-cloud-api</artifactId>
+    <parent>
+        <groupId>org.jeecgframework.boot</groupId>
+        <artifactId>jeecg-boot-parent</artifactId>
+        <version>3.8.2</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>jeecg-module-system-api</artifactId>
+
+    <name>jeecg-module-system-api</name>
+    <description>系统人员信息查询 API 模块</description>
 
     <dependencies>
-        <!-- feign -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-openfeign</artifactId>
-        </dependency>
-        <!-- 新增：实现 jeecg-module-all 定义的 system-api 接口 -->
+        <!-- 公共API定义（字典、分页等通用VO） -->
         <dependency>
             <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>jeecg-module-system-api</artifactId>
+            <artifactId>api-common</artifactId>
             <version>3.8.2</version>
         </dependency>
     </dependencies>
+
 </project>

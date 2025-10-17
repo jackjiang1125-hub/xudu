@@ -17,6 +17,7 @@
         <module>api-common</module>
         <module>jeecg-module-iot-api</module>
         <module>jeecg-module-acc-api</module>
+        <module>jeecg-module-system-api</module>
     </modules>
 
     <properties>

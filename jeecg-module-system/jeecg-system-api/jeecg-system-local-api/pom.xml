@@ -11,4 +11,12 @@
 
     <artifactId>jeecg-system-local-api</artifactId>
 
+    <dependencies>
+        <!-- 新增：实现 jeecg-module-all 定义的 system-api 接口 -->
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>jeecg-module-system-api</artifactId>
+            <version>3.8.2</version>
+        </dependency>
+    </dependencies>
 </project>

@@ -23,6 +23,13 @@
             <version>3.8.2</version>
         </dependency>
 
+        <!-- 依赖 jeecg-module-all 中定义的系统人员查询接口 -->
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>jeecg-module-system-api</artifactId>
+            <version>3.8.2</version>
+        </dependency>
+
         <dependency>
             <groupId>org.jeecgframework.boot</groupId>
             <artifactId>jeecg-module-iot-api</artifactId>
