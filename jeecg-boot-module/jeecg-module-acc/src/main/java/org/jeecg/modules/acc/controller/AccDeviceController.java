@@ -4,9 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.system.vo.LoginUser;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
 import org.jeecgframework.boot.acc.vo.AccDeviceVO;
@@ -97,24 +95,10 @@ public class AccDeviceController {
     @Operation(summary = "新增门禁设备")
     public Result<AccDeviceVO> add(@RequestBody AccDeviceVO deviceVO) {
         try {
-            // 优先从 IoT 设备表按 SN 获取完整详情，并与传入数据进行合并（传入值优先，空缺由IoT补全）
-            if (deviceVO != null && StringUtils.isNotBlank(deviceVO.getSn())) {
-                IotDeviceVO iot = iotDeviceService.getBySn(deviceVO.getSn());
-                if (iot != null) {
-                    if (StringUtils.isBlank(deviceVO.getDeviceName())) deviceVO.setDeviceName(iot.getDeviceName());
-                    if (StringUtils.isBlank(deviceVO.getDeviceType())) deviceVO.setDeviceType(iot.getDeviceType());
-                    if (StringUtils.isBlank(deviceVO.getIpAddress())) deviceVO.setIpAddress(iot.getIpAddress());
-                    if (StringUtils.isBlank(deviceVO.getFirmwareVersion())) deviceVO.setFirmwareVersion(iot.getFirmwareVersion());
-                    if (StringUtils.isBlank(deviceVO.getPushVersion())) deviceVO.setPushVersion(iot.getPushVersion());
-                    if (deviceVO.getMachineType() == null) deviceVO.setMachineType(iot.getMachineType());
-                    if (StringUtils.isBlank(deviceVO.getGatewayIp())) deviceVO.setGatewayIp(iot.getGatewayIp());
-                    if (StringUtils.isBlank(deviceVO.getNetMask())) deviceVO.setNetMask(iot.getNetMask());
-                    if (deviceVO.getLastRegistryTime() == null) deviceVO.setLastRegistryTime(iot.getLastRegistryTime());
-                    if (deviceVO.getAuthorized() == null) deviceVO.setAuthorized(iot.getAuthorized());
-                }
-            }
-            AccDeviceVO result = accDeviceService.save(deviceVO);
-            return Result.OK(result);
+            //不直接写入到acc_device，先写入到acc_device_temp。
+            accDeviceService.saveTemp(deviceVO);
+
+            return Result.OK();
         } catch (Exception e) {
             log.error("新增设备失败", e);
             return Result.error("新增设备失败: " + e.getMessage());
@@ -173,45 +157,6 @@ public class AccDeviceController {
             log.error("批量删除设备失败", e);
             return Result.error("批量删除设备失败: " + e.getMessage());
         }
-    }
-
-    /**
-     * 授权设备
-     */
-    @PostMapping("/authorize")
-    @Operation(summary = "授权门禁设备")
-    public Result<AccDeviceVO> authorize(@RequestBody AuthorizeRequest request) {
-        if (request == null || StringUtils.isBlank(request.sn)) {
-            return Result.error("设备SN不能为空");
-        }
-        // 查找设备，如果不存在则直接返回错误提示
-        AccDeviceVO exist = accDeviceService.getBySn(request.sn);
-        if (exist == null) {
-            return Result.error("设备不存在，请先添加");
-        }
-        // 更新授权信息
-        exist.setAuthorized(1);
-        exist.setRegistryCode(request.registryCode);
-        exist.setRemark(request.remark);
-        exist.setLastRegistryTime(java.time.LocalDateTime.now());
-
-        // 从 IoT 设备表补充细节信息（尽量不覆盖已有非空字段）
-        IotDeviceVO iot = iotDeviceService.getBySn(request.sn);
-        if (iot != null) {
-            if (StringUtils.isBlank(exist.getDeviceName())) exist.setDeviceName(iot.getDeviceName());
-            if (StringUtils.isBlank(exist.getDeviceType())) exist.setDeviceType(iot.getDeviceType());
-            if (StringUtils.isBlank(exist.getIpAddress())) exist.setIpAddress(iot.getIpAddress());
-            if (StringUtils.isBlank(exist.getFirmwareVersion())) exist.setFirmwareVersion(iot.getFirmwareVersion());
-            if (StringUtils.isBlank(exist.getPushVersion())) exist.setPushVersion(iot.getPushVersion());
-            if (exist.getMachineType() == null) exist.setMachineType(iot.getMachineType());
-            if (StringUtils.isBlank(exist.getGatewayIp())) exist.setGatewayIp(iot.getGatewayIp());
-            if (StringUtils.isBlank(exist.getNetMask())) exist.setNetMask(iot.getNetMask());
-            if (exist.getLastRegistryTime() == null && iot.getLastRegistryTime() != null) exist.setLastRegistryTime(iot.getLastRegistryTime());
-            if (exist.getAuthorized() == null && iot.getAuthorized() != null) exist.setAuthorized(iot.getAuthorized());
-        }
-
-        AccDeviceVO updated = accDeviceService.update(exist);
-        return Result.OK(updated);
     }
 
     /**

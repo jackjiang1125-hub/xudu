@@ -95,6 +95,11 @@ public class AccDeviceVO {
     private String registryCode;
 
     /**
+     * 是否重置
+     */
+    private Boolean isReset;
+
+    /**
      * 备注
      */
     private String remark;

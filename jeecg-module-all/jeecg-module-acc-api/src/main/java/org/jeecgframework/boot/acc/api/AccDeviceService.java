@@ -59,5 +59,9 @@ public interface AccDeviceService {
      */
     boolean deleteBatch(String[] ids);
 
-
+     /**
+      * 将设备信息写入临时表 acc_device_temp
+      * @param deviceVO 设备信息（使用 sn、deviceName、isReset）
+      */
+     void saveTemp(org.jeecgframework.boot.acc.vo.AccDeviceVO deviceVO);
 }

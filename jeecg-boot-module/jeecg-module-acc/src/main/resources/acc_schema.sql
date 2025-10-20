@@ -34,3 +34,20 @@ CREATE TABLE IF NOT EXISTS acc_device (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门禁设备';
 CREATE UNIQUE INDEX idx_acc_device_sn ON acc_device (sn);
 
+-- Table: acc_device_options (可扩展设备管理字段存储)
+CREATE TABLE IF NOT EXISTS acc_device_options (
+    id              VARCHAR(32)     NOT NULL COMMENT 'Primary key',
+    create_by       VARCHAR(32)     NULL COMMENT '创建人',
+    create_time     DATETIME        NULL COMMENT '创建时间',
+    update_by       VARCHAR(32)     NULL COMMENT '更新人',
+    update_time     DATETIME        NULL COMMENT '更新时间',
+    device_id       VARCHAR(32)     NULL COMMENT '关联 acc_device.id',
+    sn              VARCHAR(64)     NOT NULL COMMENT '设备序列号',
+    option_key      VARCHAR(64)     NOT NULL COMMENT '选项键（如 resetRequired）',
+    option_value    VARCHAR(512)    NULL COMMENT '选项值（字符串存储）',
+    option_type     VARCHAR(32)     NULL COMMENT '选项类型（STRING/BOOLEAN/NUMBER/JSON）',
+    PRIMARY KEY (id),
+    INDEX idx_acc_device_options_sn (sn),
+    UNIQUE KEY uk_acc_device_option (sn, option_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门禁设备选项键值表';
+
