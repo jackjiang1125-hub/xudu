@@ -25,11 +25,6 @@ public class AccReaderServiceImpl extends ServiceImpl<AccReaderMapper, AccReader
     public IPage<AccReader> queryPageList(Page<AccReader> page, String readerId, String name, String doorName) {
         LambdaQueryWrapper<AccReader> queryWrapper = new LambdaQueryWrapper<>();
         
-        // 根据读头ID查询
-        if (oConvertUtils.isNotEmpty(readerId)) {
-            queryWrapper.like(AccReader::getReaderId, readerId);
-        }
-        
         // 根据读头名称查询
         if (oConvertUtils.isNotEmpty(name)) {
             queryWrapper.like(AccReader::getName, name);

@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
  */
 @Data
 public class AccDoorVO {
-    private Integer id;
+    private String id;
+    private String deviceSn;
     private String deviceName;
     private String doorName;
     private String verificationMethod;

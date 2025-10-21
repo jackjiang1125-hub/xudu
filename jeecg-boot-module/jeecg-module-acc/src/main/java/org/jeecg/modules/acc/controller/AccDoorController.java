@@ -51,7 +51,7 @@ public class AccDoorController {
      */
     @GetMapping("/detail")
     @Operation(summary = "根据ID查询门详情")
-    public Result<AccDoorVO> getById(@RequestParam Integer id) {
+    public Result<AccDoorVO> getById(@RequestParam String id) {
         AccDoor entity = accDoorService.getById(id);
         if (entity == null) {
             return Result.error("门不存在");
@@ -97,7 +97,7 @@ public class AccDoorController {
      */
     @DeleteMapping("/delete")
     @Operation(summary = "删除门")
-    public Result<Void> delete(@RequestParam Integer id) {
+    public Result<Void> delete(@RequestParam String id) {
         try {
             boolean ok = accDoorService.removeById(id);
             return ok ? Result.OK() : Result.error("删除失败");

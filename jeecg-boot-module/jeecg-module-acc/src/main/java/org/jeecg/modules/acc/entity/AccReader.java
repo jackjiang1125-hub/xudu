@@ -24,14 +24,6 @@ public class AccReader extends JeecgEntity {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 读头id
-     */
-    @Excel(name = "读头ID", width = 15)
-    @Schema(description = "读头id")
-    @TableField("reader_id")
-    private String readerId;
-
-    /**
      * 读头名称
      */
     @Excel(name = "读头名称", width = 15)
@@ -46,6 +38,7 @@ public class AccReader extends JeecgEntity {
     @Schema(description = "门名称")
     @TableField("door_name")
     private String doorName;
+    
 
     /**
      * 编号

@@ -5,11 +5,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
 import org.jeecg.modules.acc.entity.AccDevice;
+import org.jeecg.modules.acc.entity.AccDoor;
+import org.jeecg.modules.acc.entity.AccReader;
+import org.jeecg.modules.acc.entity.AccDeviceTemp;
 import org.jeecg.modules.acc.mapper.AccDeviceMapper;
 import org.jeecg.modules.acc.mapstruct.AccDeviceMapstruct;
 import org.jeecg.modules.acc.mapstruct.AccDeviceQueryMapstruct;
 import org.jeecg.modules.acc.mapstruct.RegisterAccDeviceEventMapstruct;
 import org.jeecg.modules.acc.service.IAccDeviceTempService;
+import org.jeecg.modules.acc.service.IAccDoorService;
+import org.jeecg.modules.acc.service.IAccReaderService;
 import org.jeecg.modules.events.acc.RegisterAccDeviceEvent;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
@@ -48,6 +53,12 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
     @Autowired
     private IotDeviceService iotDeviceService;
+
+    @Autowired
+    private IAccDoorService accDoorService;
+
+    @Autowired
+    private IAccReaderService accReaderService;
 
 
 //    @Override
@@ -129,7 +140,7 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
             exist.setDeviceName(deviceVO.getDeviceName());
             Boolean reset = deviceVO.getIsReset();
             if (reset != null) {
-                exist.setIsReboot(reset);
+                exist.setIsReset(reset);
             }
             try {
                 org.jeecg.common.system.vo.LoginUser lu =
@@ -204,12 +215,65 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
             return;
         }
         AccDevice accDevice = registerAccDeviceEventMapstruct.toAccDevice(registerAccDeviceEvent);
+
+        // 查询临时表
+        AccDeviceTemp accDeviceTemp = accDeviceTempService.lambdaQuery()
+                .eq(AccDeviceTemp::getSn, registerAccDeviceEvent.getSn())
+                .one();
+        if (accDeviceTemp == null) {
+            log.warn("未找到临时设备记录 SN={}", registerAccDeviceEvent.getSn());
+            return;
+        }
+
+        accDevice.setDeviceName(accDeviceTemp.getDeviceName());
         save(accDevice);
         log.info("授权设备成功,添加只门禁模块");
 
-        // 添加门列表
-        // 添加读头列表
         // 判断是否需要下发重置设备数据命令
+        if (accDeviceTemp.getIsReset()) {
+            
+        }
+
+        // 添加门列表，有几个门，往acc_door表添加几条记录，doorName命名是第一个门  设备名-1  第二个门  设备名-2  以此类推
+        for (int i = 0; i < accDevice.getLockCount(); i++) {
+            AccDoor accDoor = new AccDoor();
+            accDoor.setDoorNumber(i + 1);
+            accDoor.setDeviceSn(accDevice.getSn());
+            accDoor.setDeviceName(accDevice.getDeviceName());
+            accDoor.setDoorName(accDevice.getDeviceName() + "-" + (i + 1));
+
+            // 设置默认参数
+            accDoor.setOperationInterval(0);    //操作间隔
+            accDoor.setVerificationMethod("自动识别");  //验证方式
+            accDoor.setAntiBacktrackingDuration(0);    //入反潜时长
+
+            accDoor.setCoercionPassword("");    //胁迫密码
+            accDoor.setEmergencyPassword("");   //紧急状态密码
+            accDoor.setHostAccessStatus("入");   //主机出入状态
+            accDoor.setSlaveAccessStatus("出");   //从机出入状态
+            accDoor.setLockDriveDuration(5);    //锁开时长5秒
+            accDoor.setDoorContactDelay(30);    //门磁延时30秒
+            accDoor.setMultiPersonOpenInterval(10);  //多人开门间隔10秒
+
+            // TODO 按理说这里应该默认赋值24小时通行
+            accDoor.setDoorValidTimeRange("");   //门有效时间段
+            accDoor.setDoorAlwaysOpenTime("");   //门常开时间段
+
+            accDoorService.save(accDoor);
+
+            // 一个门两个读头, 一个入一个出，读头名称  设备名是门名称-入  门名称-出
+            for (int j = 0; j < 2; j++) {
+                AccReader accReader = new AccReader();
+
+                accReader.setDoorName(accDoor.getDoorName());
+                accReader.setType(j == 0 ? "入" : "出");
+                accReader.setName(accDoor.getDoorName() + "-" + (j == 0 ? "入" : "出"));
+                // 如果是第一个门是 1 2，第二个门是 3 4，以此类推
+                accReader.setNum(String.valueOf(j == 0 ? (i * 2 + 1) : (i * 2 + 2)));
+                accReaderService.save(accReader);
+            }
+        }
+        
         // 给设备下发软件时间、时区等
     }
 }
