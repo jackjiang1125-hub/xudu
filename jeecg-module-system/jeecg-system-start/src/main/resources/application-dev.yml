@@ -175,7 +175,9 @@ spring:
     password: ''
 #mybatis plus 设置
 mybatis-plus:
-  mapper-locations: classpath*:org/jeecg/**/xml/*Mapper.xml
+  mapper-locations:
+    - classpath*:org/jeecg/**/xml/*Mapper.xml
+    - classpath*:com/xudu/**/xml/*Mapper.xml
   global-config:
     # 关闭MP3.0自带的banner
     banner: false
