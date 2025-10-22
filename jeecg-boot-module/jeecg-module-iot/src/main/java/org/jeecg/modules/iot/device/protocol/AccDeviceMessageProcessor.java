@@ -152,8 +152,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
         Optional<IotDevice> device = iotDeviceInnerService.findBySn(sn);
         if (device.isPresent() && Boolean.TRUE.equals(device.get().getAuthorized())){
 
-            if(device.get().getRegistryCode()==null){
-                //没有注册码，说明是授权通过之后，首次添加至系统中来
+            if(device.get().getRegistryCode()!=null){
+                //有注册码，说明是授权通过之后，首次添加至系统中来
                 //需要发送通知给acc模块，添加设备信息至门禁模块。
                 applicationEventPublisher.publishEvent(iotDeviceMapstruct.toRegisterAccDeviceEvent(device.get()));
             }

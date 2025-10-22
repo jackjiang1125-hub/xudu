@@ -27,8 +27,8 @@ public class AccDeviceTempServiceImpl extends ServiceImpl<AccDeviceTempMapper, A
         temp.setDeviceName(deviceVO.getDeviceName());
         // 将 VO 中的 isReset 视为 isReboot（是否重启）
         Boolean reset = deviceVO.getIsReset();
-        temp.setIsReboot(reset != null ? reset : Boolean.FALSE);
+        temp.setIsReset(reset != null ? reset : Boolean.FALSE);
         this.save(temp);
-        log.info("[AccDeviceTemp] 已保存临时设备记录 SN={}, name={}, reboot={} ", temp.getSn(), temp.getDeviceName(), temp.getIsReboot());
+        log.info("[AccDeviceTemp] 已保存临时设备记录 SN={}, name={}, reboot={} ", temp.getSn(), temp.getDeviceName(), temp.getIsReset());
     }
 }

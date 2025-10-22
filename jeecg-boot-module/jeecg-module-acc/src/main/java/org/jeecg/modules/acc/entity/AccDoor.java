@@ -24,6 +24,10 @@ public class AccDoor extends JeecgEntity {
     @TableField("device_name")
     private String deviceName;
 
+    /** 设备序列号 */
+    @TableField("device_sn")
+    private String deviceSn;
+
     /** 门名称 */
     @TableField("door_name")
     private String doorName;

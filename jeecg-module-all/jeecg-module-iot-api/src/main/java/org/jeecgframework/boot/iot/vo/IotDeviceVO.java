@@ -42,6 +42,15 @@ public class IotDeviceVO{
      */
     private String pushVersion;
 
+    /**
+     * Number of locks reported by the device.
+     */
+    private Integer lockCount;
+
+    /**
+     * Number of readers reported by the device.
+     */
+    private Integer readerCount;
 
     /**
      * Machine type identifier (e.g. 101 for all-in-one devices). 设备类型 比如101 代表一体机

@@ -17,7 +17,6 @@ import org.jeecgframework.boot.iot.query.IotDeviceQuery;
 import org.jeecgframework.boot.iot.vo.IotDeviceVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.jeecg.modules.iot.device.enums.IotDeviceStatus;
 import java.util.Map;
 
 @Service
@@ -28,6 +27,9 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
 
     @Autowired
     private IotDeviceMapstruct iotDeviceMapstruct;
+
+    @Autowired
+    private IotDeviceInnerServiceImpl iotDeviceInnerServiceImpl;
 
     @Override
     public PageResult<IotDeviceVO> list(IotDeviceQuery iotDeviceQuery,PageRequest pageRequest, Map<String, String[]> queryParam) {
@@ -58,20 +60,10 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
             String registryCode,
             String remark,
             String operator) {
-        if (StringUtils.isBlank(deviceSn) || StringUtils.isBlank(registryCode)) {
+        if (StringUtils.isBlank(deviceSn)) {
             return;
         }
-        IotDevice device = this.getOne(new LambdaQueryWrapper<IotDevice>().eq(IotDevice::getSn, deviceSn), false);
-        if (device == null) {
-            return;
-        }
-        device.setStatus(IotDeviceStatus.AUTHORIZED);
-        device.setAuthorized(Boolean.TRUE);
-        device.setRegistryCode(StringUtils.defaultIfBlank(registryCode, registryCode));
-        device.setRemark(StringUtils.defaultIfBlank(remark, remark));
-        device.setUpdateBy(operator);
-        device.setUpdateTime(new java.util.Date());
-        this.updateById(device);
+        iotDeviceInnerServiceImpl.authorizeDevice(deviceSn, registryCode, remark, operator);
     }
 
 }

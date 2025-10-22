@@ -30,8 +30,8 @@ public class AccDeviceTemp extends JeecgEntity {
     private String deviceName;
 
     /**
-     * 是否重启（0/1）
+     * 是否重置设备数据
      */
-    @TableField("is_reboot")
-    private Boolean isReboot;
+    @TableField("is_reset")
+    private Boolean isReset;
 }
