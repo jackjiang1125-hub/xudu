@@ -53,6 +53,13 @@ public interface AccDeviceService {
     boolean deleteById(String id);
 
     /**
+     * 删除设备
+     * @param id 设备ID
+     * @return 是否成功
+     */
+    boolean deleteByIdCustom(String id);
+
+    /**
      * 批量删除设备
      * @param ids 设备ID列表
      * @return 是否成功
