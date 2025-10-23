@@ -1,9 +1,17 @@
 package org.jeecg.modules.acc.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
+import dm.jdbc.b.p;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
+import org.jeecg.modules.acc.constants.AccAntiPassbackConstants;
+import org.jeecg.modules.acc.constants.AccDoorMaskFlagConstants;
+import org.jeecg.modules.acc.constants.AccFirstCardOpenDoorConstants;
+import org.jeecg.modules.acc.constants.AccInterlockConstants;
+import org.jeecg.modules.acc.constants.AccMultiCardOpenConstants;
+import org.jeecg.modules.acc.constants.AccOfflineAccessConstants;
 import org.jeecg.modules.acc.entity.AccDevice;
 import org.jeecg.modules.acc.entity.AccDoor;
 import org.jeecg.modules.acc.entity.AccReader;
@@ -27,8 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.jeecgframework.boot.iot.api.IotDeviceService;
 
+import java.util.HashMap;
 import java.util.Map;
-
 /**
  * 门禁设备服务实现类
  * @author system
@@ -235,7 +243,7 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
         // 判断是否需要下发重置设备数据命令
         if (accDeviceTemp.getIsReset()) {
-            
+            deviceInitSync(accDevice.getSn());
         }
 
         // 添加门列表，有几个门，往acc_door表添加几条记录，doorName命名是第一个门  设备名-1  第二个门  设备名-2  以此类推
@@ -277,5 +285,128 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
                 accReaderService.save(accReader);
             }
         }
+    }
+
+    private void deviceInitSync(String sn) {
+        // TODO 暂时以一体机TDB08这样操作
+        
+        // 删除一体化模板，type=8是掌静脉
+        iotDeviceService.deleteAllTemplatesType8(sn);
+        // 删除一体化模板，type=9是可见光面部
+        iotDeviceService.deleteAllTemplatesType9(sn);
+        // 删除所有用户权限
+        iotDeviceService.deleteAllUserAuthorize(sn);
+        // 删除所有用户
+        iotDeviceService.deleteAllUsers(sn);
+        // 删除全部联动详细信息数据
+        iotDeviceService.deleteAllInoutfun(sn);
+        // 删除全部首卡开门数据
+        iotDeviceService.deleteAllFirstcard(sn);
+        // 删除全部不同时段的验证方式数据
+        iotDeviceService.deleteAllDiffTimezoneVS(sn);
+        // 删除全部门不同时段的验证方式数据
+        iotDeviceService.deleteAllDoorVSTimezone(sn);
+        // 删除全部人不同时段的验证方式数据
+        iotDeviceService.deleteAllPersonalVSTimezone(sn);
+        // 删除全部输入控制（受时间段限制）数据
+        iotDeviceService.deleteAllInputIOSetting(sn);
+        // 删除全部时间组
+        iotDeviceService.deleteAllTimezone(sn);
+        // 删除全部节假日
+        iotDeviceService.deleteAllHoliday(sn);
+        // 删除全部多卡开门数据
+        iotDeviceService.deleteAllMultimcard(sn);
+
+        // 更新门禁时间段规则
+        {
+            java.util.LinkedHashMap<String, Object> tzBasic = new java.util.LinkedHashMap<>();
+            tzBasic.put("TimeZoneId", 1);
+            tzBasic.put("SunTime1", 2359);
+            tzBasic.put("SunTime2", 0);
+            tzBasic.put("SunTime3", 0);
+            tzBasic.put("MonTime1", 2359);
+            tzBasic.put("MonTime2", 0);
+            tzBasic.put("MonTime3", 0);
+            tzBasic.put("TueTime1", 2359);
+            tzBasic.put("TueTime2", 0);
+            tzBasic.put("TueTime3", 0);
+            tzBasic.put("WedTime1", 2359);
+            tzBasic.put("WedTime2", 0);
+            tzBasic.put("WedTime3", 0);
+            tzBasic.put("ThuTime1", 2359);
+            tzBasic.put("ThuTime2", 0);
+            tzBasic.put("ThuTime3", 0);
+            tzBasic.put("FriTime1", 2359);
+            tzBasic.put("FriTime2", 0);
+            tzBasic.put("FriTime3", 0);
+            tzBasic.put("SatTime1", 2359);
+            tzBasic.put("SatTime2", 0);
+            tzBasic.put("SatTime3", 0);
+            tzBasic.put("Hol1Time1", 2359);
+            tzBasic.put("Hol1Time2", 0);
+            tzBasic.put("Hol1Time3", 0);
+            tzBasic.put("Hol2Time1", 2359);
+            tzBasic.put("Hol2Time2", 0);
+            tzBasic.put("Hol2Time3", 0);
+            tzBasic.put("Hol3Time1", 2359);
+            tzBasic.put("Hol3Time2", 0);
+            tzBasic.put("Hol3Time3", 0);
+            iotDeviceService.updateTimezone(sn, tzBasic);
+        }
+        // 更新门的出入类型的输入控制（受时间段限制）
+        {
+            java.util.LinkedHashMap<String, Integer> input0 = new java.util.LinkedHashMap<>();
+            input0.put("Number", 1);
+            input0.put("InType", 0);
+            input0.put("TimeZoneId", 1);
+            iotDeviceService.updateInputIOSetting(sn, input0);
+        }
+        {
+            java.util.LinkedHashMap<String, Integer> input1 = new java.util.LinkedHashMap<>();
+            input1.put("Number", 1);
+            input1.put("InType", 1);
+            input1.put("TimeZoneId", 1);
+            iotDeviceService.updateInputIOSetting(sn, input1);
+        }
+
+        // 设置互锁:无
+        iotDeviceService.setInterlock(sn, AccInterlockConstants.NONE);
+        // 设置反潜:无反潜
+        iotDeviceService.setBacktracking(sn, AccAntiPassbackConstants.NONE);
+        // 设置门的设置非法组合，默认设置0
+        iotDeviceService.setDoorFirstCardOpenDoor(sn, Map.of("Door1FirstCardOpenDoor", AccFirstCardOpenDoorConstants.NONE));
+        // 设置门的相关参数：Door1CloseAndLock=0,WiegandIDIn=1,Door1Drivertime=5,Door1SensorType=0,
+        // Door1Detectortime=15,Door1Intertime=0,SlaveIOState=0,Door1VerifyType=0,Reader1IOState=1,
+        // Door1MultiCardInterTime=10,Door1ValidTZ=1,Door1SupperPassWord=,WiegandID=1,Door1ForcePassWord=,Door1KeepOpenTimeZone=0
+        // TODO 这里很多参数后续要变更为真实的
+        Map<String, Integer> map = new java.util.LinkedHashMap<>();
+        map.put("Door1CloseAndLock", 0);
+        map.put("WiegandIDIn", 1);
+        map.put("Door1Drivertime", 5);
+        map.put("Door1SensorType", 0);
+        map.put("Door1Detectortime", 15);
+        map.put("Door1Intertime", 0);
+        map.put("SlaveIOState", 0);
+        map.put("Door1VerifyType", 0);
+        map.put("Reader1IOState", 1);
+        map.put("Door1MultiCardInterTime", 10);
+        map.put("Door1ValidTZ", 1);
+        map.put("Door1SupperPassWord", null);
+        map.put("WiegandID", 1);
+        map.put("Door1ForcePassWord", null);
+        map.put("Door1KeepOpenTimeZone", 0);
+        iotDeviceService.setDoorRelatedParameter(sn, map);
+        // 设置读头离线后是否正常通行 Reader2OfflineRefuse=0,Reader1OfflineRefuse=0,AutoServerMode=0
+        {
+            java.util.LinkedHashMap<String, Integer> offlineParams = new java.util.LinkedHashMap<>();
+            offlineParams.put("Reader2OfflineRefuse", AccOfflineAccessConstants.NORMAL);
+            offlineParams.put("Reader1OfflineRefuse", AccOfflineAccessConstants.NORMAL);
+            offlineParams.put("AutoServerMode", 0);
+            iotDeviceService.setReaderOfflineAccess(sn, offlineParams);
+        }
+        // 设置门锁定标志
+        iotDeviceService.setDoorMaskFlag(sn, Map.of("Door1MaskFlag", AccDoorMaskFlagConstants.NONE));
+        // 设置是否多卡开门
+        iotDeviceService.setMultiCardOpenDoor(sn, Map.of("Door1MultiCardOpenDoor", AccMultiCardOpenConstants.NO));
     }
 }

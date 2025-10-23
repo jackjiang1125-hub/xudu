@@ -1,5 +1,5 @@
 // controller/ZlmController.java
-package org.jeecg.modules.zlm.controller;
+package com.xudu.center.zlm.controller;
 
 import com.xudu.center.zlm.config.ZlmProperties;
 import com.xudu.center.zlm.dto.NormalizeReq;

@@ -84,18 +84,29 @@ public class ControlDeviceCommandDispatcher {
 
     /**
      * 批量下发 SET OPTIONS 命令。
+     * 若一次性下发多组参数，则合并为一条命令，并用英文逗号分隔键值。
+     * 示例：SET OPTIONS Door1CloseAndLock=0,WiegandIDIn=1,Door1Drivertime=5,...
      */
     public List<IotDeviceCommand> dispatchSetOptions(String sn, List<OptionsCommandFactory.OptionsCommand> commands, String operator) {
         if (commands == null || commands.isEmpty()) {
             return List.of();
         }
-        int startCmdId = (int) commandSeqService.nextSeq(sn);
-        int id = startCmdId;
-        List<String> lines = new ArrayList<>();
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        // 收集所有键值对，最终用逗号拼接
+        List<String> kvAll = new ArrayList<>();
         for (OptionsCommandFactory.OptionsCommand c : commands) {
-            lines.add(c.build(id++));
+            String line = c.build(cmdId); // 形如：C:<cmdId>:SET OPTIONS k=v\t...
+            int idx = line.indexOf("SET OPTIONS ");
+            String tail = idx >= 0 ? line.substring(idx + "SET OPTIONS ".length()) : line;
+            String[] parts = tail.split("\\t"); // 将制表符分隔的键值对拆分
+            for (String p : parts) {
+                if (p != null && !p.isBlank()) {
+                    kvAll.add(p.trim());
+                }
+            }
         }
-        return iotDeviceCommandService.enqueueCommands(sn, lines, operator);
+        String merged = "C:" + cmdId + ":SET OPTIONS " + String.join(",", kvAll);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(merged), operator);
     }
 
     private String currentTzOffsetFormatted() {

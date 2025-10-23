@@ -206,6 +206,9 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
         if (StringUtils.isBlank(sn)) {
             return DeviceResponse.text(OK);
         }
+        // if (StringUtils.isBlank(sn)) {
+        //     return DeviceResponse.text("406");
+        // }
         LocalDateTime heartbeatTime = LocalDateTime.now();
         redisCache.recordHeartbeat(sn, message.getClientIp());
         iotDeviceInnerService.markHeartbeat(sn, message.getClientIp(), heartbeatTime);

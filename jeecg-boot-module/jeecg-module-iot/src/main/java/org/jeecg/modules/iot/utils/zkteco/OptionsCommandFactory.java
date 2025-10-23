@@ -28,8 +28,7 @@ public final class OptionsCommandFactory {
      */
     public static String buildSetOptions(int cmdId, Map<String, ?> params) {
         String tail = params.entrySet().stream()
-                .filter(e -> e.getValue() != null)
-                .map(e -> e.getKey() + "=" + e.getValue())
+                .map(e -> e.getKey() + "=" + (e.getValue() == null ? "" : e.getValue()))
                 .collect(Collectors.joining(HT));
         return prefix(cmdId) + "SET" + SP + "OPTIONS" + SP + tail;
     }
