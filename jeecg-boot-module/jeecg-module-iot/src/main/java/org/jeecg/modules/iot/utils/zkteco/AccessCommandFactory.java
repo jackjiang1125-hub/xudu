@@ -97,28 +97,36 @@ public class AccessCommandFactory {
 
     /** 下发比对照片（biophoto） */
     public static class CmdBioPhoto {
-        public String pin;         // 必填
-        public Integer type = 9;   // 默认为 9: 可见光人脸
+        public String pin;       // 必填
+        public Integer type;     // 常见 9: 可见光人脸
+        public Integer format;   // 0: base64, 1: url
+        public String url;       // format=1 时必填
+        public String content;   // format=0 时必填（Base64）
+        public Integer size;     // Base64 长度
         public Integer no = 0;     // 默认 0
-        public Integer index = 0;  // 从 0 开始
-        public Integer format;     // 0: base64, 1: url
-        public String url;         // format=1 时必填
-        public String content;     // format=0 时必填（Base64）
-        public Integer size;       // Base64 长度
-        public Integer postBackTmpFlag; // 0/1 可选
+        public Integer index = 0;
 
         public static CmdBioPhoto fromBase64(String pin, String base64) {
             CmdBioPhoto p = new CmdBioPhoto();
-            p.pin = pin; p.format = 0; p.content = base64; p.size = base64Length(base64);
+            p.pin = pin;
+            p.type = 9;
+            p.format = 0;
+            p.content = base64;
+            p.size = base64Length(base64);
             return p;
         }
         public static CmdBioPhoto fromUrl(String pin, String url) {
             CmdBioPhoto p = new CmdBioPhoto();
-            p.pin = pin; p.format = 1; p.url = url; return p;
+            p.pin = pin;
+            p.type = 9;
+            p.format = 1;
+            p.url = url;
+            p.size = null;
+            return p;
         }
     }
 
-    /* ========================= 单条命令 ========================= */
+    /* ========================= 构建 UPDATE 子命令（略） ========================= */
 
     /** UPDATE user —— 新增/下发用户信息 */
     public static String buildUpdateUser(int cmdId, CmdUser u) {
@@ -180,8 +188,27 @@ public class AccessCommandFactory {
         return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "biophoto" + SP + String.join(HT, kv);
     }
 
-    /* ========================= 删除命令（常用） ========================= */
+    /** UPDATE InputIOSetting —— 输入控制设置 */
+    public static String buildUpdateInputIOSetting(int cmdId, Map<String, ?> params) {
+        Objects.requireNonNull(params, "InputIOSetting params required");
+        List<String> kv = new ArrayList<>();
+        params.entrySet().stream()
+                .filter(e -> e.getValue() != null)
+                .forEach(e -> put(kv, e.getKey(), e.getValue()));
+        return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "InputIOSetting" + SP + String.join(HT, kv);
+    }
 
+    /** UPDATE timezone —— 时区设置 */
+    public static String buildUpdateTimezone(int cmdId, Map<String, ?> params) {
+        Objects.requireNonNull(params, "timezone params required");
+        List<String> kv = new ArrayList<>();
+        params.entrySet().stream()
+                .filter(e -> e.getValue() != null)
+                .forEach(e -> put(kv, e.getKey(), e.getValue()));
+        return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "timezone" + SP + String.join(HT, kv);
+    }
+
+    /* ========================= 构建 DELETE 子命令 ========================= */
     public static String buildDeleteUserAuthorize(int cmdId, String pin) {
         return buildSimpleDelete(cmdId, "userauthorize", mapOf("Pin", pin));
     }
@@ -215,6 +242,13 @@ public class AccessCommandFactory {
     }
     public static String buildDeleteMulCardUser(int cmdId, String pin) {
         return buildSimpleDelete(cmdId, "mulcarduser", mapOf("Pin", pin));
+    }
+
+    /**
+     * 删除指定表的全部数据：DATA DELETE <table> *
+     */
+    public static String buildDeleteAllRows(int cmdId, String table) {
+        return prefix(cmdId) + "DATA" + SP + "DELETE" + SP + table + SP + "*";
     }
 
     private static String buildSimpleDelete(int cmdId, String table, Map<String, ?> cond) {
