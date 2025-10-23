@@ -30,4 +30,18 @@ public interface IotDeviceService  {
             String remark,
             String operator);
 
+    /**
+     * 同步时区
+     * @param sn 设备序列号
+     * @param tz 时区
+     */
+    void syncTimezone(String sn, String tz);
+
+    /**
+     * 同步时间
+     * @param sn 设备序列号
+     * @param epochSeconds 时间戳（秒）
+     */
+    void syncTime(String sn, Long epochSeconds);
+
 }

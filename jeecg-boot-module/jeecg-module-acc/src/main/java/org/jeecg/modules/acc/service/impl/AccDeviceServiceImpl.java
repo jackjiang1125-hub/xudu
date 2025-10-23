@@ -229,6 +229,10 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
         save(accDevice);
         log.info("授权设备成功,添加只门禁模块");
 
+        // 下发软件时区、时间
+        iotDeviceService.syncTimezone(accDevice.getSn(), "+0800");
+        iotDeviceService.syncTime(accDevice.getSn(), System.currentTimeMillis() / 1000);
+
         // 判断是否需要下发重置设备数据命令
         if (accDeviceTemp.getIsReset()) {
             
@@ -273,7 +277,5 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
                 accReaderService.save(accReader);
             }
         }
-        
-        // 给设备下发软件时间、时区等
     }
 }

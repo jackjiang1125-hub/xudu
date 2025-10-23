@@ -17,6 +17,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 门禁设备管理控制器
@@ -199,5 +201,40 @@ public class AccDeviceController {
      * 按SN添加设备请求
      */
     public record AddBySnRequest(String sn, String deviceName, String ipAddress) {
+    }
+
+    /**
+     * 批量同步设备时间
+     */
+    @PostMapping("/syncTime")
+    @Operation(summary = "批量同步设备时间")
+    public Result<Object> syncTime(@RequestBody SyncTimeRequest request) {
+        if (request == null || request.sns() == null || request.sns().isEmpty()) {
+            return Result.error("参数sns不能为空");
+        }
+        List<String> failed = new ArrayList<>();
+        for (String sn : request.sns()) {
+            try {
+                Long ts = request.timestamp();
+                iotDeviceService.syncTimezone(sn, "+0800");
+                iotDeviceService.syncTime(sn, ts != null ? ts : System.currentTimeMillis() / 1000);
+            } catch (Exception e) {
+                log.warn("同步时间失败 sn={} err={}", sn, e.getMessage());
+                failed.add(sn);
+            }
+        }
+        int total = request.sns().size();
+        int success = total - failed.size();
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("total", total);
+        data.put("success", success);
+        data.put("failed", failed);
+        return Result.OK(data);
+    }
+
+    /**
+     * 同步时间请求
+     */
+    public record SyncTimeRequest(List<String> sns, Long timestamp) {
     }
 }

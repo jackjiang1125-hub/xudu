@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jeecg.modules.iot.device.entity.IotDevice;
 
 import org.jeecg.modules.iot.device.mapper.IotDeviceMapper;
+import org.jeecg.modules.iot.device.service.ControlDeviceCommandDispatcher;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceMapstruct;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceQueryMapstruct;
 import org.jeecgframework.boot.common.vo.PageRequest;
@@ -18,6 +19,10 @@ import org.jeecgframework.boot.iot.vo.IotDeviceVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.Map;
+// import org.apache.shiro.SecurityUtils;
+// import org.jeecg.common.system.vo.LoginUser;
+// import org.jeecg.modules.iot.device.entity.IotDeviceCommand;
+// import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
 
 @Service
 public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotDevice> implements IotDeviceService {
@@ -30,6 +35,9 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
 
     @Autowired
     private IotDeviceInnerServiceImpl iotDeviceInnerServiceImpl;
+
+    @Autowired
+    private ControlDeviceCommandDispatcher controlDeviceCommandDispatcher;
 
     @Override
     public PageResult<IotDeviceVO> list(IotDeviceQuery iotDeviceQuery,PageRequest pageRequest, Map<String, String[]> queryParam) {
@@ -66,4 +74,25 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         iotDeviceInnerServiceImpl.authorizeDevice(deviceSn, registryCode, remark, operator);
     }
 
+    @Override
+    public void syncTime(String deviceSn, Long timestamp) {
+        // 调用内部服务实现时间同步
+        if (StringUtils.isBlank(deviceSn)) {
+            return;
+        }
+        // LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        // String operator = loginUser != null ? loginUser.getUsername() : null;
+        controlDeviceCommandDispatcher.syncTime(deviceSn, timestamp, "");
+    }
+
+    @Override
+    public void syncTimezone(String deviceSn, String timezone) {
+        // 调用内部服务实现时区同步
+        if (StringUtils.isBlank(deviceSn)) {
+            return;
+        }
+        // LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        // String operator = loginUser != null ? loginUser.getUsername() : null;
+        controlDeviceCommandDispatcher.syncTimezone(deviceSn, timezone, "");
+    }
 }
