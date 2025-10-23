@@ -1,0 +1,21 @@
+zlm:
+  base-url: http://127.0.0.1                  # ZLM 的 HTTP API 基础地址
+  secret: your-secret
+
+  # 给应用层暴露播放地址（HLS/FLV/WHEP/RTSP），之前你就有
+  public-http-base: http://127.0.0.1
+  public-rtsp-host: 127.0.0.1:554
+
+  # —— 新增：给 ZLM“回推”用的内部发布地址（别再写死 127.0.0.1）——
+  internal:
+    rtmp-base: rtmp://127.0.0.1          # 推回 ZLM 时的 RTMP 基地址（可换成 rtmp://zlm.internal）
+    rtsp-base: rtsp://127.0.0.1:554      # 读取本机 ZLM 的 RTSP 基地址
+
+  # —— 新增：FFmpeg 模板 key（和 config.ini 的 [ffmpeg] cmd_* 对齐）——
+  ffmpeg-keys:
+    copy-rtmp:            ffmpeg.cmd_copy_rtmp
+    aac-only-rtmp:        ffmpeg.cmd_aac_only_rtmp
+    h264-only-rtmp:       ffmpeg.cmd_h264_only_rtmp
+    h264-only-rtmp-nvenc: ffmpeg.cmd_h264_only_rtmp_nvenc
+    h264-aac-rtmp:        ffmpeg.cmd_h264_aac_rtmp
+    h264-aac-rtmp-nvenc:  ffmpeg.cmd_h264_aac_rtmp_nvenc

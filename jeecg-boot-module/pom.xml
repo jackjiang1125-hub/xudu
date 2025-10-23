@@ -17,6 +17,8 @@
         <module>jeecg-boot-module-airag</module>
         <module>jeecg-module-iot</module>
         <module>jeecg-module-acc</module>
+        <module>xudu-module-zlm</module>
+        <module>xudu-module-video</module>
     </modules>
 
 

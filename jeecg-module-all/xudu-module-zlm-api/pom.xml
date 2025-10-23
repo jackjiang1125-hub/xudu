@@ -3,23 +3,24 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <packaging>pom</packaging>
 
     <parent>
         <groupId>org.jeecgframework.boot</groupId>
         <artifactId>jeecg-boot-parent</artifactId>
         <version>3.8.2</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>jeecg-module-all</artifactId>
+    <artifactId>xudu-module-zlm-api</artifactId>
 
-    <modules>
-        <module>api-common</module>
-        <module>jeecg-module-iot-api</module>
-        <module>jeecg-module-acc-api</module>
-        <module>jeecg-module-system-api</module>
-        <module>xudu-module-zlm-api</module>
-    </modules>
+    <name>xudu-module-zlm-api</name>
+    <description>zlm管理API模块</description>
 
-
+    <dependencies>
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>api-common</artifactId>
+            <version>3.8.2</version>
+        </dependency>
+    </dependencies>
 </project>

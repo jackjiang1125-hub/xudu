@@ -1,0 +1,66 @@
+CREATE TABLE `media_gateway` (
+  `id`                 varchar(32)  NOT NULL,
+  `name`               varchar(64)  DEFAULT NULL COMMENT '网关名称(可手动编辑)',
+  `media_server_id`    varchar(64)  DEFAULT NULL COMMENT 'mediaServerId(支持general.mediaServerId/顶层mediaServerId)',
+  -- API 相关
+  `api_debug`          tinyint      DEFAULT NULL COMMENT 'api.apiDebug(0/1)',
+  `api_secret`         varchar(128) DEFAULT NULL COMMENT 'api.secret',
+  `api_default_snap`   varchar(256) DEFAULT NULL COMMENT 'api.defaultSnap',
+  `api_snap_root`      varchar(256) DEFAULT NULL COMMENT 'api.snapRoot',
+  -- GENERAL 常用
+  `general_enable_vhost` tinyint    DEFAULT NULL COMMENT 'general.enableVhost(0/1)',
+  `general_flow_threshold` int      DEFAULT NULL COMMENT 'general.flowThreshold',
+  `general_max_stream_wait_ms` int  DEFAULT NULL COMMENT 'general.maxStreamWaitMS',
+  -- FFmpeg
+  `ffmpeg_bin`         varchar(256) DEFAULT NULL,
+  `ffmpeg_cmd`         varchar(512) DEFAULT NULL,
+  `ffmpeg_log`         varchar(256) DEFAULT NULL,
+  `ffmpeg_restart_sec` int          DEFAULT NULL,
+  `ffmpeg_snap`        varchar(256) DEFAULT NULL,
+  -- HTTP / RTMP / RTSP / RTC 端口
+  `http_port`          int          DEFAULT NULL,
+  `http_sslport`       int          DEFAULT NULL,
+  `rtmp_port`          int          DEFAULT NULL,
+  `rtsp_port`          int          DEFAULT NULL,
+  `rtc_port`           int          DEFAULT NULL,
+  `rtc_tcp_port`       int          DEFAULT NULL,
+  `rtc_signaling_port` int          DEFAULT NULL,
+  `rtc_signaling_ssl_port` int      DEFAULT NULL,
+  `rtc_extern_ip`      varchar(64)  DEFAULT NULL,
+  `rtc_port_range`     varchar(64)  DEFAULT NULL,
+  `rtc_timeout_sec`    int          DEFAULT NULL,
+  -- HOOK 关键项
+  `hook_enable`        tinyint      DEFAULT NULL,
+  `hook_alive_interval` decimal(10,3) DEFAULT NULL,
+  `hook_on_server_started` varchar(256) DEFAULT NULL,
+  `hook_retry`         int          DEFAULT NULL,
+  `hook_retry_delay`   decimal(10,3) DEFAULT NULL,
+  `hook_timeout_sec`   int          DEFAULT NULL,
+  -- 协议开关/点播策略
+  `enable_hls`         tinyint      DEFAULT NULL,
+  `enable_fmp4`        tinyint      DEFAULT NULL,
+  `enable_rtmp`        tinyint      DEFAULT NULL,
+  `enable_rtsp`        tinyint      DEFAULT NULL,
+  `enable_ts`          tinyint      DEFAULT NULL,
+  `hls_demand`         tinyint      DEFAULT NULL,
+  `fmp4_demand`        tinyint      DEFAULT NULL,
+  `rtmp_demand`        tinyint      DEFAULT NULL,
+  `rtsp_demand`        tinyint      DEFAULT NULL,
+  `ts_demand`          tinyint      DEFAULT NULL,
+  `hls_save_path`      varchar(256) DEFAULT NULL,
+  `hls_seg_dur`        int          DEFAULT NULL,
+  `hls_seg_num`        int          DEFAULT NULL,
+  `hls_delete_delay_sec` int        DEFAULT NULL,
+  -- 录制常用
+  `record_app_name`    varchar(64)  DEFAULT NULL,
+  `record_enable_fmp4` tinyint      DEFAULT NULL,
+  -- 其余未映射项原样保存
+  `extra_json`         json         DEFAULT NULL,
+  -- Jeecg 通用
+  `create_by`          varchar(32)  DEFAULT NULL,
+  `create_time`        datetime     DEFAULT CURRENT_TIMESTAMP,
+  `update_by`          varchar(32)  DEFAULT NULL,
+  `update_time`        datetime     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_media_server_id` (`media_server_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='媒体网关(ZLM)配置';
