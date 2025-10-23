@@ -1,8 +1,12 @@
 package com.xudu.center.video.camera.controller;
 
-import com.xudu.center.video.camera.service.IVideoService;
-import com.xudu.center.video.camera.vo.VideoQuery;
-import com.xudu.center.video.camera.vo.VideoVO;
+
+import com.xudu.center.video.api.IVideoService;
+import com.xudu.center.video.vo.VideoQuery;
+import com.xudu.center.video.vo.VideoVO;
+import com.xudu.center.zlm.api.IOnDemandPlayService;
+import com.xudu.center.zlm.constants.PlayTarget;
+import com.xudu.center.zlm.dto.NormalizeResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.jeecg.common.api.vo.Result;
@@ -22,6 +26,10 @@ public class VideoController {
     @Autowired
     private IVideoService videoService;
 
+    @Autowired
+    private IOnDemandPlayService  playService;
+
+
     @PostMapping("/add")
     @Operation(summary = "添加视频流")
     public Result<String> add(@RequestBody VideoVO videoVO) {
@@ -32,8 +40,8 @@ public class VideoController {
     @GetMapping("/list")
     @Operation(summary = "分页查询视频流列表")
     public Result<PageResult<VideoVO>> list(VideoQuery videoQuery,
-                                           PageRequest pageRequest,
-                                           HttpServletRequest req) {
+                                            PageRequest pageRequest,
+                                            HttpServletRequest req) {
         PageResult<VideoVO> result = videoService.list(videoQuery, pageRequest, req.getParameterMap());
         return Result.OK(result);
     }
@@ -59,7 +67,7 @@ public class VideoController {
     @Operation(summary = "删除视频流")
     public Result<String> delete(@PathVariable String id) {
         videoService.deleteVideo(id);
-        return Result.OK("视频流删除成功");
+        return Result.OK("删除成功");
     }
 
     @DeleteMapping("/batch")
@@ -67,5 +75,13 @@ public class VideoController {
     public Result<String> deleteBatch(@RequestBody List<String> ids) {
         videoService.deleteBatchVideo(ids);
         return Result.OK("批量删除成功");
+    }
+
+    /** 前端点击播放前先调，拿到可播 URL；服务内部按需拉/转 */
+    @GetMapping("/preparePlay")
+    public Result<NormalizeResult> preparePlay(@RequestParam String cameraId,
+                                       @RequestParam(defaultValue = "PC") PlayTarget target,
+                                       @RequestParam(defaultValue = "false") boolean preferNvenc) {
+        return Result.OK(playService.prepareByCamera(cameraId, target, preferNvenc));
     }
 }

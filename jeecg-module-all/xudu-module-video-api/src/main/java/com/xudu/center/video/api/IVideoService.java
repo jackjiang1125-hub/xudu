@@ -1,10 +1,8 @@
-package com.xudu.center.video.camera.service;
+package com.xudu.center.video.api;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.xudu.center.video.camera.entity.Video;
-import com.xudu.center.video.camera.vo.VideoQuery;
-import com.xudu.center.video.camera.vo.VideoVO;
+
+import com.xudu.center.video.vo.VideoQuery;
+import com.xudu.center.video.vo.VideoVO;
 import org.jeecgframework.boot.common.vo.PageRequest;
 import org.jeecgframework.boot.common.vo.PageResult;
 
@@ -41,4 +39,6 @@ public interface IVideoService {
      * 批量删除视频流
      */
     void deleteBatchVideo(List<String> ids);
+
+    VideoVO findByAppStream(String app, String stream);
 }

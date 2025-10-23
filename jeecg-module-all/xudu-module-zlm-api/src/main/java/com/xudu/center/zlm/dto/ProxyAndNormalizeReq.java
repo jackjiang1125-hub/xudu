@@ -16,6 +16,8 @@ public class ProxyAndNormalizeReq {
   /** 原始相机地址：rtsp://admin:pwd@ip:554/Streaming/Channels/101 等 */
   private String url;
 
+  private String vhost = "__defaultVhost__";
+
   // addStreamProxy 相关可选项
   private Integer rtpType = 1;                // 1=UDP, 0=TCP（FFmpeg 里我们已强制 tcp，ZLM这里保留默认）
   private Boolean closeWhenNoConsumer = true; // 无观众时关闭

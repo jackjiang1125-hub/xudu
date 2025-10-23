@@ -25,6 +25,12 @@
             <artifactId>xudu-module-zlm-api</artifactId>
             <version>3.8.2</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>xudu-module-video-api</artifactId>
+            <version>3.8.2</version>
+        </dependency>
     </dependencies>
 
 

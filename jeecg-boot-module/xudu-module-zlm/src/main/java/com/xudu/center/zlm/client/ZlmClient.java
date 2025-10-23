@@ -45,9 +45,13 @@ public class ZlmClient {
     public ZlmResponse<Object> addStreamProxy(String schema, String app, String stream, String url,
                                               Integer rtpType, Boolean closeWhenNoConsumer) {
         return get("/index/api/addStreamProxy", Map.of(
-            "schema", schema, "app", app, "stream", stream,
-            "url", url, "rtp_type", rtpType == null ? 1 : rtpType,
-            "close_when_no_consumer", closeWhenNoConsumer == null ? 1 : (closeWhenNoConsumer ? 1 : 0)
+                "vhost","__defaultVhost__",
+            "app", app, "stream", stream,
+            "url", url, "rtp_type", rtpType,
+            "enable_rtsp",true,
+            "enable_hls",true,
+            "enable_audio",true,
+            "auto_close", closeWhenNoConsumer
         ), Object.class);
     }
 

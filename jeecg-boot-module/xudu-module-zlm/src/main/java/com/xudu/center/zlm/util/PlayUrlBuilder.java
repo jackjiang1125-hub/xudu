@@ -26,7 +26,7 @@ public class PlayUrlBuilder {
     String rtsp = "rtsp://" + rtspHost(p) + "/" + app + "/" + stream;
     String hls  = http + "/" + app + "/" + stream + "/hls.m3u8";
     String flv  = http + "/" + app + "/" + stream + ".live.flv";
-    String whep = http + "/index/api/whep?app=" + app + "&stream=" + stream;
+    String whep = http + "/index/api/webrtc?app=" + app + "&stream=" + stream+"&type=play";
     return PlayUrls.builder().hls(hls).flv(flv).whep(whep).rtsp(rtsp).build();
   }
 }

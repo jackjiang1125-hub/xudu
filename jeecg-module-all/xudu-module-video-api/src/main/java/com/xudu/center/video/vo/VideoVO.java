@@ -1,4 +1,4 @@
-package com.xudu.center.video.camera.vo;
+package com.xudu.center.video.vo;
 
 import lombok.Data;
 
@@ -15,7 +15,7 @@ public class VideoVO {
     private String port;
 
     private String manufacturer;
-    private String model;
+    private String model = "xudu_model_video";
     private String type;//nvr ipc
 
     private String app = "xudu";//zlm 用的应用名

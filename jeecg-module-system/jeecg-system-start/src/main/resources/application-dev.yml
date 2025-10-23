@@ -25,6 +25,10 @@ management:
         include: metrics,jeecghttptrace
 
 spring:
+
+  config:
+    import:
+      - optional:classpath:/zlm-dev.yml
   flyway:
     # 是否启用flyway
     enabled: true
@@ -335,3 +339,4 @@ justauth:
     type: default
     prefix: 'demo::'
     timeout: 1h
+

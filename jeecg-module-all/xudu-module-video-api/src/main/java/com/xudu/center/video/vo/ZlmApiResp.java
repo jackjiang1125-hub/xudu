@@ -1,5 +1,5 @@
 // ZlmApiResp.java  (接收 ZLM /index/api 返回)
-package com.xudu.center.video.camera.vo;
+package com.xudu.center.video.vo;
 import lombok.Data;
 import java.util.Map;
 

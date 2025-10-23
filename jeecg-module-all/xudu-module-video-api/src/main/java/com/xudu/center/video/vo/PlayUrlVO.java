@@ -1,5 +1,5 @@
 // PlayUrlVO.java  (给前端的播放地址封装)
-package com.xudu.center.video.camera.vo;
+package com.xudu.center.video.vo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 

@@ -1,7 +1,7 @@
 package com.xudu.center.video.camera.mapstruct;
 
 import com.xudu.center.video.camera.entity.Video;
-import com.xudu.center.video.camera.vo.VideoVO;
+import com.xudu.center.video.vo.VideoVO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;

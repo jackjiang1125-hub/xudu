@@ -57,6 +57,11 @@ public class ZlmMediaInspector {
   }
 
   public boolean streamExists(String app, String stream) {
-    try { probeCodec(app, stream); return true; } catch (Exception e) { return false; }
+    try {
+        probeCodec(app, stream);
+        return true;
+    } catch (Exception e) {
+        return false;
+    }
   }
 }

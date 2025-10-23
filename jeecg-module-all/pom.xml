@@ -19,6 +19,7 @@
         <module>jeecg-module-acc-api</module>
         <module>jeecg-module-system-api</module>
         <module>xudu-module-zlm-api</module>
+        <module>xudu-module-video-api</module>
     </modules>
 
 
