@@ -1,0 +1,22 @@
+CREATE TABLE `pos_product_category` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `category_code` varchar(64) NOT NULL COMMENT '分类编号',
+  `category_name` varchar(128) NOT NULL COMMENT '分类名称',
+  `alias` varchar(128) DEFAULT NULL COMMENT '展示别名',
+  `description` varchar(512) DEFAULT NULL COMMENT '分类简介',
+  `status` varchar(16) NOT NULL DEFAULT 'enabled' COMMENT '状态(enabled:启用,disabled:停用)',
+  `display_order` int(11) DEFAULT '0' COMMENT '排序号',
+  `remark` varchar(512) DEFAULT NULL COMMENT '备注信息',
+  `create_by` varchar(32) DEFAULT NULL COMMENT '创建人',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by` varchar(32) DEFAULT NULL COMMENT '更新人',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `sys_org_code` varchar(64) DEFAULT NULL COMMENT '机构代码',
+  `tenant_id` varchar(32) DEFAULT NULL COMMENT '租户ID',
+  `del_flag` tinyint(1) DEFAULT '0' COMMENT '删除标志(0:未删除,1:已删除)',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_category_code` (`category_code`),
+  KEY `idx_tenant_id` (`tenant_id`),
+  KEY `idx_sys_org_code` (`sys_org_code`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品分类表';
