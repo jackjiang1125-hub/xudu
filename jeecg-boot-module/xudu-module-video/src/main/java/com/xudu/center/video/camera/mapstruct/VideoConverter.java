@@ -20,7 +20,6 @@ public interface VideoConverter {
      * @param videoVO VideoVO object
      * @return Video entity
      */
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "createBy", ignore = true)
     @Mapping(target = "createTime", ignore = true)
     @Mapping(target = "updateBy", ignore = true)

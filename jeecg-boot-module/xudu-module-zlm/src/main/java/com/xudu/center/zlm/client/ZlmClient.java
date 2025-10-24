@@ -51,7 +51,7 @@ public class ZlmClient {
             "enable_rtsp",true,
             "enable_hls",true,
             "enable_audio",true,
-            "auto_close", closeWhenNoConsumer
+            "auto_close", true
         ), Object.class);
     }
 

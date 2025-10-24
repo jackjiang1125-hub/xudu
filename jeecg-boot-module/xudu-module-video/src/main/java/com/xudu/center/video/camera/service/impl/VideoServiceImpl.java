@@ -109,12 +109,16 @@ public class VideoServiceImpl extends JeecgServiceImpl<VideoMapper, Video> imple
                 username, password, ip, port);
         } else if ("xudu_manufacturer_ZK".equalsIgnoreCase(manufacturer) || "熵基".equals(manufacturer)) {
             // 熵基格式: rtsp://username:password@ip:port/ch01
-            return String.format("rtsp://%s:%s@%s:%s/ch01", 
+            return String.format("rtsp://%s:%s@%s:%s/ch01.264",
                 username, password, ip, port);
         } else if ("xudu_manufacturer_ZS".equalsIgnoreCase(manufacturer) || "臻识".equals(manufacturer)) {
             // 臻识格式: rtsp://username:password@ip:port/h264
             return String.format("rtsp://%s:%s@%s:%s/h264", 
                 username, password, ip, port);
+        } else if ("xudu_manufacturer_HW".equalsIgnoreCase(manufacturer) || "华为".equals(manufacturer)) {
+            // 臻识格式: rtsp://username:password@ip:port/h264
+            return String.format("rtsp://%s:%s@%s:%s/LiveMedia/ch1/Media1",
+                    username, password, ip, port);
         } else {
             // 默认格式: rtsp://username:password@ip:port/live
             return String.format("rtsp://%s:%s@%s:%s/live", 

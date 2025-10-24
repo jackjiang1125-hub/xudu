@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "zlm.play") // 在 application-*.yml 里配置
 public class ZlmPlayProperties {
   /** 友好时提升策略：reproxy | ffcopy | direct */
-  private String promoteStrategy = "reproxy";
+  private String promoteStrategy = "direct";
   /** 统一对外 app，默认 trans；如果 direct 则返回 src */
   private String publicApp = "trans";
   /** 内部源 app */
