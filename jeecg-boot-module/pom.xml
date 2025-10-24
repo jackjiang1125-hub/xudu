@@ -17,6 +17,7 @@
         <module>jeecg-boot-module-airag</module>
         <module>jeecg-module-iot</module>
         <module>jeecg-module-acc</module>
+        <module>jeecg-module-pos</module>
     </modules>
 
 
