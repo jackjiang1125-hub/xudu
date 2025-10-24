@@ -30,6 +30,10 @@ import org.jeecg.modules.iot.service.DeviceMessageProcessor;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +83,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 case "/iclock/push" -> handlePush(message);
                 case "/iclock/getrequest" -> handleHeartbeat(message);
                 case "/iclock/devicecmd" -> handleDeviceCommandReport(message);
+                // 增加回复时区/iclock/rtdata
+                case "/iclock/rtdata" -> handleRtdata(message);
                 default -> DeviceResponse.text(404, "NOT FOUND");
             };
         } catch (Exception e) {
@@ -285,6 +291,52 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
         }
 
         return DeviceResponse.text(OK);
+    }
+
+    /**
+     * 兼容设备发起的 /iclock/rtdata?SN=xxx&type=time 请求，返回
+     * DateTime=<旧编码秒数>,ServerTZ=<服务器时区>
+     */
+    private DeviceResponse handleRtdata(DeviceMessage message) {
+        Map<String, String> query = message.getQueryParameters();
+        String type = firstValue(query, "type");
+        if (!StringUtils.equalsIgnoreCase(type, "time")) {
+            return DeviceResponse.text(404, "NOT FOUND");
+        }
+        // 按文档要求：DateTime 为格林威治时间（UTC）按附录5旧编码算法转换的秒数
+        long tt = toOldEncodedSecondsUTC(Instant.now());
+        String serverTz = currentTzOffsetFormatted();
+        String body = "DateTime=" + tt + ",ServerTZ=" + serverTz;
+        return DeviceResponse.builder()
+                .body(body)
+                .contentType("text/plain; charset=UTF-8")
+                .build();
+    }
+
+    /**
+     * 附录5旧编码算法（基于 UTC）：
+     * tt = ((year-2000)*12*31 + ((mon-1)*31) + day-1) * 86400 + (hour*60+min)*60 + sec
+     */
+    private long toOldEncodedSecondsUTC(Instant instant) {
+        ZonedDateTime dt = instant.atZone(ZoneOffset.UTC);
+        long days = ((dt.getYear() - 2000L) * 12L * 31L)
+                + ((dt.getMonthValue() - 1L) * 31L)
+                + (dt.getDayOfMonth() - 1L);
+        long secondsOfDay = (dt.getHour() * 60L + dt.getMinute()) * 60L + dt.getSecond();
+        return days * 24L * 60L * 60L + secondsOfDay;
+    }
+
+    /**
+     * 服务器时区偏移，格式 +HHmm / -HHmm
+     */
+    private String currentTzOffsetFormatted() {
+        ZoneOffset offset = ZonedDateTime.now(ZoneId.systemDefault()).getOffset();
+        int totalSeconds = offset.getTotalSeconds();
+        int abs = Math.abs(totalSeconds);
+        int hours = abs / 3600;
+        int minutes = (abs % 3600) / 60;
+        String sign = totalSeconds >= 0 ? "+" : "-";
+        return sign + String.format("%02d%02d", hours, minutes);
     }
 
     private void handleRtLog(String sn, DeviceMessage message) {
