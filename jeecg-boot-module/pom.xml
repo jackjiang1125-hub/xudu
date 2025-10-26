@@ -20,6 +20,7 @@
         <module>jeecg-module-pos</module>
         <module>xudu-module-zlm</module>
         <module>xudu-module-video</module>
+        <module>xudu-module-hkclients</module>
     </modules>
 
 
