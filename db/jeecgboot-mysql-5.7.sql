@@ -8573,6 +8573,7 @@ CREATE TABLE `sys_user`  (
   `password` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '密码',
   `salt` varchar(45) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT 'md5密码盐',
   `avatar` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '头像',
+  `face_cutout` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '人脸抠图',
   `birthday` date NULL DEFAULT NULL COMMENT '生日',
   `sex` tinyint(1) NULL DEFAULT NULL COMMENT '性别(0-默认未知,1-男,2-女)',
   `email` varchar(45) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '电子邮件',
@@ -8607,10 +8608,10 @@ CREATE TABLE `sys_user`  (
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------
-INSERT INTO `sys_user` VALUES ('1714471285016895490', 'ceshi', '测试用户', 'a9932bb12d2cbc5a', 'AF4vhXUz', NULL, '2024-04-11', NULL, 'winter@jeecg.org', '15201111112', NULL, 1, 0, NULL, NULL, 1, '123', NULL, 'admin', '2023-10-18 10:39:42', 'ceshi', '2025-05-08 16:11:05', 1, '', NULL, 0, NULL);
-INSERT INTO `sys_user` VALUES ('3d464b4ea0d2491aab8a7bde74c57e95', 'zhangsan', '张三', '02ea098224c7d0d2077c14b9a3a1ed16', 'x5xRdeKB', 'https://static.jeecg.com/temp/jmlogo_1606575041993.png', '2024-04-11', NULL, '111@1.com', '13426411111', '财务部', 1, 0, NULL, NULL, 1, '0005', NULL, 'admin', '2020-05-14 21:26:24', 'admin', '2024-04-26 13:25:37', 1, '', NULL, NULL, NULL);
-INSERT INTO `sys_user` VALUES ('a75d45a015c44384a04449ee80dc3503', 'jeecg', 'jeecg', 'eee378a1258530cb', 'mIgiYJow', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', NULL, 1, '418799587@qq.com', '18611788525', 'A02A01', 1, 0, NULL, NULL, 1, '00002', NULL, 'admin', '2019-02-13 16:02:36', 'admin', '2023-10-18 13:51:36', 1, '', NULL, 1001, NULL);
-INSERT INTO `sys_user` VALUES ('e9ca23d68d884d4ebb19d07889727dae', 'admin', '管理员', 'cb362cfeefbf3d8d', 'RCGTeGiH', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', '1986-02-01', 1, 'jeecg@163.com', '18611111111', 'A01', 1, 0, NULL, NULL, 1, '00001', NULL, NULL, '2019-06-21 17:54:10', 'admin', '2025-07-30 15:22:42', 2, '', NULL, 0, NULL);
+INSERT INTO `sys_user` VALUES ('1714471285016895490', 'ceshi', '测试用户', 'a9932bb12d2cbc5a', 'AF4vhXUz', NULL, NULL, '2024-04-11', NULL, 'winter@jeecg.org', '15201111112', NULL, 1, 0, NULL, NULL, 1, '123', NULL, 'admin', '2023-10-18 10:39:42', 'ceshi', '2025-05-08 16:11:05', 1, '', NULL, 0, NULL);
+INSERT INTO `sys_user` VALUES ('3d464b4ea0d2491aab8a7bde74c57e95', 'zhangsan', '张三', '02ea098224c7d0d2077c14b9a3a1ed16', 'x5xRdeKB', 'https://static.jeecg.com/temp/jmlogo_1606575041993.png', NULL, '2024-04-11', NULL, '111@1.com', '13426411111', '财务部', 1, 0, NULL, NULL, 1, '0005', NULL, 'admin', '2020-05-14 21:26:24', 'admin', '2024-04-26 13:25:37', 1, '', NULL, NULL, NULL);
+INSERT INTO `sys_user` VALUES ('a75d45a015c44384a04449ee80dc3503', 'jeecg', 'jeecg', 'eee378a1258530cb', 'mIgiYJow', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', NULL, NULL, 1, '418799587@qq.com', '18611788525', 'A02A01', 1, 0, NULL, NULL, 1, '00002', NULL, 'admin', '2019-02-13 16:02:36', 'admin', '2023-10-18 13:51:36', 1, '', NULL, 1001, NULL);
+INSERT INTO `sys_user` VALUES ('e9ca23d68d884d4ebb19d07889727dae', 'admin', '管理员', 'cb362cfeefbf3d8d', 'RCGTeGiH', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', NULL, '1986-02-01', 1, 'jeecg@163.com', '18611111111', 'A01', 1, 0, NULL, NULL, 1, '00001', NULL, NULL, '2019-06-21 17:54:10', 'admin', '2025-07-30 15:22:42', 2, '', NULL, 0, NULL);
 
 -- ----------------------------
 -- Table structure for sys_user_agent

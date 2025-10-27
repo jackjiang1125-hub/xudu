@@ -71,6 +71,12 @@ public class SysUser implements Serializable {
     private String avatar;
 
     /**
+     * 人脸抠图
+     */
+    @Excel(name = "人脸抠图", width = 15,type = 2)
+    private String faceCutout;
+
+    /**
      * 生日
      */
     @Excel(name = "生日", width = 15, format = "yyyy-MM-dd")
