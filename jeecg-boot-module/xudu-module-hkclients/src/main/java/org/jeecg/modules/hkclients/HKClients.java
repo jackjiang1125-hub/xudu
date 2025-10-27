@@ -3,35 +3,17 @@ package org.jeecg.modules.hkclients;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.hkclients.dto.HkConn;
 import org.jeecg.modules.hkclients.dto.NvrDeviceOverview;
-import org.jeecg.modules.hkclients.dto.ZlmStreamHint;
 import org.jeecg.modules.hkclients.exception.HKClientException;
 import org.jeecg.modules.hkclients.http.HikPooledClientManager;
-import org.jeecg.modules.hkclients.model.content.DownloadRequest;
 import org.jeecg.modules.hkclients.model.content.InputProxyChannelList;
-import org.jeecg.modules.hkclients.model.network.NetworkInterface;
-import org.jeecg.modules.hkclients.model.pisa.CMChannelStatus;
-import org.jeecg.modules.hkclients.model.record.TrackDailyDistribution;
-import org.jeecg.modules.hkclients.model.record.TrackDailyParam;
-import org.jeecg.modules.hkclients.model.search.CMSearchDescription;
-import org.jeecg.modules.hkclients.model.search.CMSearchResult;
-import org.jeecg.modules.hkclients.model.streaming.StreamingChannel;
 import org.jeecg.modules.hkclients.model.streaming.StreamingChannelList;
-import org.jeecg.modules.hkclients.model.status.StatusChannel;
-import org.jeecg.modules.hkclients.model.status.StatusChannelList;
 import org.jeecg.modules.hkclients.model.system.DeviceInfo;
-import org.jeecg.modules.hkclients.util.RtspUriUtils;
 import org.springframework.http.*;
-import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.util.StreamUtils;
 import org.springframework.web.client.*;
-import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.OutputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Slf4j
 public class HKClients {
@@ -77,27 +59,7 @@ public class HKClients {
         }
     }
 
-    /** Network Interface (IPv4) */
-    public NetworkInterface getNetworkInterface(HkConn conn, int id) {
-        RestTemplate tpl = getTemplate(conn);
-        String url = buildUrl(conn, "/ISAPI/System/Network/interfaces/" + id);
-        try {
-            ResponseEntity<NetworkInterface> resp = tpl.exchange(URI.create(url), HttpMethod.GET, entityXml(null), NetworkInterface.class);
-            return resp.getBody();
-        } catch (HttpClientErrorException e) {
-            throw new HKClientException(e.getStatusCode().value(), "getNetworkInterface error: " + e.getResponseBodyAsString());
-        }
-    }
-    public boolean setNetworkInterface(HkConn conn, int id, NetworkInterface body) {
-        RestTemplate tpl = getTemplate(conn);
-        String url = buildUrl(conn, "/ISAPI/System/Network/interfaces/" + id);
-        try {
-            ResponseEntity<String> resp = tpl.exchange(URI.create(url), HttpMethod.PUT, entityXml(body), String.class);
-            return resp.getStatusCode().is2xxSuccessful();
-        } catch (HttpClientErrorException e) {
-            throw new HKClientException(e.getStatusCode().value(), "setNetworkInterface error: " + e.getResponseBodyAsString());
-        }
-    }
+
 
     /** IPC Channel list */
     public InputProxyChannelList getInputProxyChannels(HkConn conn) {
@@ -126,14 +88,6 @@ public class HKClients {
     public boolean configureInputProxyChannels(HkConn conn, InputProxyChannelList body) {
         RestTemplate tpl = getTemplate(conn);
         String url = buildUrl(conn, "/ISAPI/ContentMgmt/InputProxy/channels");
-        if (body != null) {
-            if (body.getVersion() == null) {
-                body.setVersion("2.0");
-            }
-            if (body.getSize() == null) {
-                body.setSize(Optional.ofNullable(body.getChannels()).map(List::size).orElse(0));
-            }
-        }
         try {
             ResponseEntity<String> resp = tpl.exchange(URI.create(url), HttpMethod.PUT, entityXml(body), String.class);
             return resp.getStatusCode().is2xxSuccessful();
@@ -143,32 +97,10 @@ public class HKClients {
         }
     }
 
-    /** list streaming track IDs */
-    /** 仅返回 trackId（101/102/…），基于一次性列表 */
-    public java.util.List<Integer> listStreamingTrackIds(HkConn conn) {
-        java.util.List<StreamingChannel> all = listStreamingChannels(conn);
-        java.util.List<Integer> ids = new java.util.ArrayList<>();
-        for (StreamingChannel sc : all) {
-            if (sc.getId() == null) continue;
-            try { ids.add(Integer.valueOf(sc.getId())); } catch (NumberFormatException ignore) {}
-        }
-        java.util.Collections.sort(ids);
-        return ids;
-    }
 
 
-    /** get one streaming channel configuration */
-    public Optional<StreamingChannel> getStreamingChannel(HkConn conn, int trackId) {
-        RestTemplate tpl = getTemplate(conn);
-        String url = buildUrl(conn, "/ISAPI/Streaming/channels/" + trackId);
-        try {
-            ResponseEntity<StreamingChannel> resp = tpl.exchange(URI.create(url), HttpMethod.GET, entityXml(null), StreamingChannel.class);
-            return Optional.ofNullable(resp.getBody());
-        } catch (HttpClientErrorException e) {
-            log.debug("getStreamingChannel {} failed: {} {}", trackId, e.getStatusCode().value(), e.getResponseBodyAsString());
-            return Optional.empty();
-        }
-    }
+
+
 
     /** RTSP url from channel+streamType */
     public String buildRtspUrl(HkConn conn, int channelNo, int streamType) {
@@ -182,10 +114,10 @@ public class HKClients {
         InputProxyChannelList list = getInputProxyChannels(conn);
 
         // 一次性拉取所有 StreamingChannel（避免逐条请求/避免猜 1、2、3 路）
-        List<org.jeecg.modules.hkclients.model.streaming.StreamingChannel> allSc = listStreamingChannels(conn);
+        List<StreamingChannelList.StreamingChannel> allSc = listStreamingChannels(conn);
 
         // 按通道号分组：trackId = chNo*100 + streamNo
-        Map<Integer, List<org.jeecg.modules.hkclients.model.streaming.StreamingChannel>> byChannel =
+        Map<Integer, List<StreamingChannelList.StreamingChannel>> byChannel =
                 allSc.stream()
                         .filter(sc -> sc.getId() != null)
                         .collect(Collectors.groupingBy(sc -> {
@@ -214,7 +146,7 @@ public class HKClients {
                         .build();
 
                 // 本通道实际存在的所有 track
-                List<org.jeecg.modules.hkclients.model.streaming.StreamingChannel> scList =
+                List<StreamingChannelList.StreamingChannel> scList =
                         byChannel.getOrDefault(chId, Collections.emptyList());
                 // 按 streamNo 升序（1/2/3…）方便前端展示
                 scList.sort(Comparator.comparingInt(sc -> {
@@ -224,7 +156,7 @@ public class HKClients {
                 // 动态回填 main/sub/third（如果不存在则为 null）
                 Map<Integer, String> rtspMap = new HashMap<>();
 
-                for (org.jeecg.modules.hkclients.model.streaming.StreamingChannel sc : scList) {
+                for (StreamingChannelList.StreamingChannel sc : scList) {
                     int trackId;
                     try { trackId = Integer.parseInt(sc.getId()); } catch (Exception e) { continue; }
                     int streamNo = trackId % 100;
@@ -260,9 +192,6 @@ public class HKClients {
                             audioCodec = a.getCodecType();
                         }
                         s.setAudioCodec(audioCodec);
-                        s.setAudioSampleRate(a.getSamplingRate());
-                        s.setAudioChannels(a.getChannels());
-                        s.setAudioBitRate(a.getBitRate());
                     } else {
                         // 无 Audio 节点：视为无音频
                         s.setAudioEnabled(Boolean.FALSE);
@@ -295,7 +224,7 @@ public class HKClients {
 
 
     /** 一次性取所有 StreamingChannel（避免逐条 GET 明细） */
-    public java.util.List<StreamingChannel> listStreamingChannels(HkConn conn) {
+    public java.util.List<StreamingChannelList.StreamingChannel> listStreamingChannels(HkConn conn) {
         RestTemplate tpl = getTemplate(conn);
         String url = buildUrl(conn, "/ISAPI/Streaming/channels");
         try {
@@ -303,116 +232,12 @@ public class HKClients {
                     tpl.exchange(URI.create(url), HttpMethod.GET, entityXml(null),
                             StreamingChannelList.class);
             StreamingChannelList body = resp.getBody();
-            if (body == null || body.getStreamingChannel() == null) return java.util.Collections.emptyList();
-            return body.getStreamingChannel();
+            if (body == null || body.getChannels() == null) return java.util.Collections.emptyList();
+            return body.getChannels();
         } catch (HttpClientErrorException e) {
             log.warn("listStreamingChannels error: {} {}", e.getStatusCode().value(), e.getResponseBodyAsString());
             return java.util.Collections.emptyList();
         }
     }
-
-
-    /** Record calendar (monthly distribution) */
-    public TrackDailyDistribution getDailyDistribution(HkConn conn, int channelNo, int streamType, int year, int month) {
-        RestTemplate tpl = getTemplate(conn);
-        int trackId = channelNo * 100 + streamType;
-        String url = buildUrl(conn, "/ISAPI/ContentMgmt/record/tracks/" + trackId + "/dailyDistribution");
-        try {
-            ResponseEntity<TrackDailyDistribution> resp = tpl.exchange(URI.create(url), HttpMethod.POST,
-                    entityXml(new TrackDailyParam(year, month)), TrackDailyDistribution.class);
-            return resp.getBody();
-        } catch (HttpClientErrorException e) {
-            throw new HKClientException(e.getStatusCode().value(), "getDailyDistribution error: " + e.getResponseBodyAsString());
-        }
-    }
-
-    /** Search recordings */
-    public CMSearchResult searchRecordings(HkConn conn, java.util.List<Integer> channelNos, int streamType,
-                                           String startISO, String endISO, int maxResults) {
-        RestTemplate tpl = getTemplate(conn);
-        String url = buildUrl(conn, "/ISAPI/ContentMgmt/search");
-
-        CMSearchDescription body = new CMSearchDescription();
-        body.setSearchID(java.util.UUID.randomUUID().toString().toUpperCase());
-        for (Integer ch : channelNos) { body.getTrackList().add(String.valueOf(ch * 100 + streamType)); }
-        CMSearchDescription.TimeSpan ts = new CMSearchDescription.TimeSpan();
-        ts.setStartTime(startISO);
-        ts.setEndTime(endISO);
-        body.getTimeSpanList().add(ts);
-        body.setMaxResults(maxResults);
-        body.setSearchResultPostion(0);
-        body.getMetadataList().add("//recordType.meta.std-cgi.com");
-
-        try {
-            ResponseEntity<CMSearchResult> resp = tpl.exchange(URI.create(url), HttpMethod.POST, entityXml(body), CMSearchResult.class);
-            assert resp.getBody() != null;
-            resp.getBody().getMatchList().forEach(m -> {
-                m.getMediaSegmentDescriptor().setPlayTrueUri(RtspUriUtils.buildPlaybackRtsp(conn,m.getTrackID(),startISO,endISO));
-            });
-            return resp.getBody();
-        } catch (HttpClientErrorException e) {
-            throw new HKClientException(e.getStatusCode().value(), "searchRecordings error: " + e.getResponseBodyAsString());
-        }
-    }
-
-
-
-    public void downloadByFileName(HkConn conn, String fileName, OutputStream out) {
-
-
-        RequestCallback rc = request -> {
-            HttpHeaders h = request.getHeaders();
-            // 有的固件会校验 Accept；给 */* 最保险
-            h.set(HttpHeaders.ACCEPT, "*/*");
-            // 如果你的 RestTemplate 已经通过拦截器加了 BasicAuth，就不需要再手动加了
-            // 如果没有，可在此处设置：h.setBasicAuth(conn.getUsername(), conn.getPassword(), StandardCharsets.UTF_8);
-        };
-
-        ResponseExtractor<Void> re = (ClientHttpResponse resp) -> {
-            // 2xx 以外可以按需抛出异常，下面简单处理
-            if (resp.getRawStatusCode() >= 400) {
-                String err = "";
-                try { err = StreamUtils.copyToString(resp.getBody(), StandardCharsets.UTF_8); } catch (Exception ignore) {}
-                throw new IllegalStateException("downloadByFileName HTTP " + resp.getRawStatusCode() + " " + err);
-            }
-            StreamUtils.copy(resp.getBody(), out); // 直接把二进制拷到调用方的 OutputStream
-            return null;
-        };
-
-        RestTemplate tpl = getTemplate(conn);
-        String url = buildUrl(conn, "/ISAPI/ContentMgmt/download?name=" + fileName);
-
-        tpl.execute(url, HttpMethod.GET, rc, re);
-    }
-
-    /** 从 search 的 playbackURI 中解析 name 参数（你也可以直接用 CMSearchResult.mediaSegmentDescriptor.name 字段） */
-    public static String extractFileNameFromPlaybackUri(String playbackUri) {
-        if (playbackUri == null) return null;
-        // 规范做法：用 Spring 的 UriComponentsBuilder 解析 query
-        // 注意：playbackURI 是 rtsp://... 不是 http，但 query 解析一样可用
-        try {
-            URI u = URI.create(playbackUri);
-            // UriComponentsBuilder 对 rtsp 也能解析 query
-            return UriComponentsBuilder.fromUri(u).build().getQueryParams().getFirst("name");
-        } catch (Exception e) {
-            // 简单兜底：手动找 name=
-            int i = playbackUri.indexOf("name=");
-            if (i >= 0) {
-                int end = playbackUri.indexOf('&', i);
-                String val = (end > i) ? playbackUri.substring(i + 5, end) : playbackUri.substring(i + 5);
-                return java.net.URLDecoder.decode(val, StandardCharsets.UTF_8);
-            }
-            return null;
-        }
-    }
-
-
-
-
-
-
-
-
-
 
 }

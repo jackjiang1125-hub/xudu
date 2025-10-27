@@ -172,9 +172,6 @@ public class VideoServiceImpl extends JeecgServiceImpl<VideoMapper, Video> imple
             streamEntity.setGop(streamInfo.getGop());
             streamEntity.setAudioEnabled(streamInfo.getAudioEnabled());
             streamEntity.setAudioCodec(streamInfo.getAudioCodec());
-            streamEntity.setAudioSampleRate(streamInfo.getAudioSampleRate());
-            streamEntity.setAudioChannels(streamInfo.getAudioChannels());
-            streamEntity.setAudioBitRate(streamInfo.getAudioBitRate());
             videoStreamMapper.insert(streamEntity);
         }
     }

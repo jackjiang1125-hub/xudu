@@ -51,9 +51,6 @@ public class NvrDeviceOverview {
             private Integer gop;
             private Boolean audioEnabled;
             private String  audioCodec;
-            private Integer audioSampleRate;
-            private Integer audioChannels;
-            private Integer audioBitRate;
         }
     }
 }

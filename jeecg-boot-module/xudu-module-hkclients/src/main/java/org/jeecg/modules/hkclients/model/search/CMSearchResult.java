@@ -1,47 +1,75 @@
 package org.jeecg.modules.hkclients.model.search;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.jeecg.modules.hkclients.util.RtspUriUtils;
 
-import javax.xml.bind.annotation.*;
-import java.util.ArrayList;
 import java.util.List;
 
-@Data @NoArgsConstructor
-@XmlRootElement(name = "CMSearchResult", namespace = CMSearchResult.HK_NS)
-@XmlAccessorType(XmlAccessType.FIELD)
+/**
+ * Jackson-XML 版 CMSearchResult
+ * 适配：/ISAPI/ContentMgmt/search
+ */
+@Data
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JacksonXmlRootElement(localName = "CMSearchResult")
 public class CMSearchResult {
-    public static final String HK_NS = "http://www.hikvision.com/ver20/XMLSchema";
 
-    @XmlElement(name = "searchID", namespace = HK_NS) private String searchID;
-    @XmlElement(name = "numOfMatches", namespace = HK_NS) private Integer numOfMatches;
+    @JacksonXmlProperty(localName = "searchID")
+    private String searchID;
 
-    @XmlElementWrapper(name = "matchList", namespace = HK_NS)
-    @XmlElement(name = "searchMatchItem", namespace = HK_NS)
-    private List<SearchMatchItem> matchList = new ArrayList<>();
+    @JacksonXmlProperty(localName = "responseStatusStrg")
+    private String responseStatusStrg;
 
-    @Data @NoArgsConstructor @XmlAccessorType(XmlAccessType.FIELD)
+    @JacksonXmlProperty(localName = "numOfMatches")
+    private Integer numOfMatches;
+
+    @JacksonXmlElementWrapper(useWrapping = false)
+    @JacksonXmlProperty(localName = "matchList")
+    private List<SearchMatchItem> matchList;
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SearchMatchItem {
-        @XmlElement(name = "trackID", namespace = HK_NS) private Integer trackID;
-        @XmlElement(name = "timeSpan", namespace = HK_NS) private TimeSpan timeSpan;
-        @XmlElement(name = "mediaSegmentDescriptor", namespace = HK_NS) private MediaSegmentDescriptor mediaSegmentDescriptor;
+
+        @JacksonXmlProperty(localName = "trackID")
+        private Integer trackID;
+
+        @JacksonXmlProperty(localName = "timeSpan")
+        private TimeSpan timeSpan;
+
+        @JacksonXmlProperty(localName = "mediaSegmentDescriptor")
+        private MediaSegmentDescriptor mediaSegmentDescriptor;
     }
 
-    @Data @NoArgsConstructor @XmlAccessorType(XmlAccessType.FIELD)
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TimeSpan {
-        @XmlElement(name = "startTime", namespace = HK_NS) private String startTime;
-        @XmlElement(name = "endTime", namespace = HK_NS) private String endTime;
+        @JacksonXmlProperty(localName = "startTime")
+        private String startTime; // 例如 2025-10-24T23:43:14Z
+
+        @JacksonXmlProperty(localName = "endTime")
+        private String endTime;
     }
 
-    @Data @NoArgsConstructor @XmlAccessorType(XmlAccessType.FIELD)
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class MediaSegmentDescriptor {
-        @XmlElement(name = "contentType", namespace = HK_NS) private String contentType;
-        @XmlElement(name = "codecType", namespace = HK_NS) private String codecType;
-        @XmlElement(name = "playbackURI", namespace = HK_NS) private String playbackURI;
-        @XmlElement(name = "name", namespace = HK_NS) private String name;
-        @XmlElement(name = "lockStatus", namespace = HK_NS) private String lockStatus;
+        @JacksonXmlProperty(localName = "contentType")
+        private String contentType;
 
-        private String playTrueUri;
+        @JacksonXmlProperty(localName = "codecType")
+        private String codecType;
+
+        @JacksonXmlProperty(localName = "playbackURI")
+        private String playbackURI;
+
+        @JacksonXmlProperty(localName = "name")
+        private String name;
+
+        @JacksonXmlProperty(localName = "lockStatus")
+        private String lockStatus;
     }
 }

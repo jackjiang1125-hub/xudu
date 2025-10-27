@@ -10,11 +10,20 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter;
+import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
+
+import javax.xml.stream.XMLInputFactory;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -90,13 +99,38 @@ public class HikPooledClientManager {
             factory.setReadTimeout(rc.getSocketTimeout());
 
             RestTemplate tpl = new RestTemplate(factory);
-            List<HttpMessageConverter<?>> converters = new ArrayList<>();
-            converters.add(new Jaxb2RootElementHttpMessageConverter());
-            converters.addAll(tpl.getMessageConverters());
+
+            // === 用 Jackson-XML 取代 JAXB，并优先匹配 ===
+            List<HttpMessageConverter<?>> converters = new ArrayList<>(tpl.getMessageConverters());
+            // 去掉 JAXB 转换器（避免命名空间严格校验）
+            converters.removeIf(c -> c instanceof Jaxb2RootElementHttpMessageConverter);
+            // 加入我们自定义的 Jackson-XML 转换器（忽略命名空间 / 放宽未知字段）
+            converters.add(0, jacksonXmlConverter());
+
             tpl.setMessageConverters(converters);
 
             start();
             return tpl;
         });
+    }
+
+    /** Jackson-XML 转换器：忽略命名空间、放宽未知字段、带常见 XML 媒体类型 */
+    private static MappingJackson2XmlHttpMessageConverter jacksonXmlConverter() {
+        XmlFactory xmlFactory = new XmlFactory();
+        // 关键：关闭命名空间感知，适配不同设备 xmlns（isapi.org / hikvision.com 等）
+        xmlFactory.getXMLInputFactory().setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false);
+
+        XmlMapper xmlMapper = new XmlMapper(xmlFactory);
+        xmlMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        xmlMapper.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, true);
+
+        MappingJackson2XmlHttpMessageConverter xmlConv = new MappingJackson2XmlHttpMessageConverter(xmlMapper);
+        xmlConv.setSupportedMediaTypes(List.of(
+                new MediaType("application","xml"),
+                new MediaType("application","xml", StandardCharsets.UTF_8),
+                new MediaType("text","xml"),
+                new MediaType("text","xml", StandardCharsets.UTF_8)
+        ));
+        return xmlConv;
     }
 }

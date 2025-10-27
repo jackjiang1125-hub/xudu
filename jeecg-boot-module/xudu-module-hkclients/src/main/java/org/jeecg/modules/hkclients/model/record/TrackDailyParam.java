@@ -1,19 +1,23 @@
 package org.jeecg.modules.hkclients.model.record;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.xml.bind.annotation.*;
-
-@Data @NoArgsConstructor
-@XmlRootElement(name = "trackDailyParam", namespace = TrackDailyParam.HK_NS)
-@XmlAccessorType(XmlAccessType.FIELD)
+@Data
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JacksonXmlRootElement(localName = "trackDailyParam")
 public class TrackDailyParam {
-    public static final String HK_NS = "http://www.hikvision.com/ver20/XMLSchema";
-    @XmlElement(name = "year", namespace = HK_NS)
+
+    @JacksonXmlProperty(localName = "year")
     private int year;
-    @XmlElement(name = "monthOfYear", namespace = HK_NS)
+
+    @JacksonXmlProperty(localName = "monthOfYear")
     private String monthOfYear;
+
     public TrackDailyParam(int year, int month) {
         this.year = year;
         this.monthOfYear = String.format("%02d", month);
