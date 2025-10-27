@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class HKClientsSimpleTest {
 
     // ====== 修改这里为你的 NVR 参数 ======
-    static final String HOST = "192.168.1.168";
+    static final String HOST = "192.168.51.168";
     static final int    PORT = 80;
     static final String USER = "admin";
     static final String PASS = "Zkteco@124";

@@ -111,6 +111,38 @@ public class HKClients {
         }
     }
 
+    public boolean deleteInputProxyChannel(HkConn conn, int channelId) {
+        RestTemplate tpl = getTemplate(conn);
+        String url = buildUrl(conn, "/ISAPI/ContentMgmt/InputProxy/channels/" + channelId);
+        try {
+            ResponseEntity<String> resp = tpl.exchange(URI.create(url), HttpMethod.DELETE, entityXml(null), String.class);
+            return resp.getStatusCode().is2xxSuccessful();
+        } catch (HttpClientErrorException e) {
+            throw new HKClientException(e.getStatusCode().value(),
+                    "deleteInputProxyChannel error: " + e.getResponseBodyAsString());
+        }
+    }
+
+    public boolean configureInputProxyChannels(HkConn conn, InputProxyChannelList body) {
+        RestTemplate tpl = getTemplate(conn);
+        String url = buildUrl(conn, "/ISAPI/ContentMgmt/InputProxy/channels");
+        if (body != null) {
+            if (body.getVersion() == null) {
+                body.setVersion("2.0");
+            }
+            if (body.getSize() == null) {
+                body.setSize(Optional.ofNullable(body.getChannels()).map(List::size).orElse(0));
+            }
+        }
+        try {
+            ResponseEntity<String> resp = tpl.exchange(URI.create(url), HttpMethod.PUT, entityXml(body), String.class);
+            return resp.getStatusCode().is2xxSuccessful();
+        } catch (HttpClientErrorException e) {
+            throw new HKClientException(e.getStatusCode().value(),
+                    "configureInputProxyChannels error: " + e.getResponseBodyAsString());
+        }
+    }
+
     /** list streaming track IDs */
     /** 仅返回 trackId（101/102/…），基于一次性列表 */
     public java.util.List<Integer> listStreamingTrackIds(HkConn conn) {

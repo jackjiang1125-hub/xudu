@@ -104,4 +104,34 @@ public class Video extends JeecgEntity {
     @Excel(name = "Audio Codec", width = 15)
     @Schema(description = "Audio codec information")
     private String audioCodec;
+
+    @TableField("parent_id")
+    @Excel(name = "Parent ID", width = 32)
+    @Schema(description = "Parent video id when representing a channel under an NVR")
+    private String parentId;
+
+    @TableField("channel_no")
+    @Excel(name = "Channel No", width = 12)
+    @Schema(description = "Channel number reported by the NVR")
+    private Integer channelNo;
+
+    @TableField("serial_number")
+    @Excel(name = "Serial Number", width = 20)
+    @Schema(description = "Device or channel serial number")
+    private String serialNumber;
+
+    @TableField("device_id")
+    @Excel(name = "Device ID", width = 20)
+    @Schema(description = "Vendor specific device identifier")
+    private String deviceId;
+
+    @TableField("firmware_version")
+    @Excel(name = "Firmware Version", width = 20)
+    @Schema(description = "Firmware version reported by the device")
+    private String firmwareVersion;
+
+    @TableField("mac_address")
+    @Excel(name = "MAC Address", width = 20)
+    @Schema(description = "Device MAC address")
+    private String macAddress;
 }
