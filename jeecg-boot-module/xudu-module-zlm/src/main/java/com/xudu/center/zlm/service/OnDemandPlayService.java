@@ -70,17 +70,21 @@ public class OnDemandPlayService implements IOnDemandPlayService {
 
       // 3) 判定是否浏览器友好
       CodecInfo ci = zlmService.probeCodec(srcApp, stream);
+
       boolean friendly = zlmService.isBrowserFriendly(ci, (target == PlayTarget.WEBRTC || target == PlayTarget.PC)? "WEBRTC" : "HLS_FLV");
+
+        NormalizeResult out = null;
 
       if (friendly) {
         switch (playProps.getPromoteStrategy().toLowerCase()) {
           case "direct": // 直接用 src
-            return NormalizeResult.builder()
+            out =  NormalizeResult.builder()
                 .browserFriendly(true)
                 .app(srcApp).stream(stream)
                 .urls(ZlmUrls.publicPlayUrls(zlmProperties, srcApp, stream))
                 .videoCodec(ci.videoRaw()).audioCodec(ci.audioRaw())
                 .build();
+            break;
 
           case "ffcopy": { // FFmpeg -c copy，从 src → public
             if (!inspector.streamExists(publicApp, stream)) {
@@ -94,12 +98,13 @@ public class OnDemandPlayService implements IOnDemandPlayService {
                 playProps.getWaitReadyMs(), playProps.getPollIntervalMs(),
                 "public stream not ready: " + publicApp + "/" + stream
             );
-            return NormalizeResult.builder()
+            out =  NormalizeResult.builder()
                 .browserFriendly(true)
                 .app(publicApp).stream(stream)
                 .urls(ZlmUrls.publicPlayUrls(zlmProperties, publicApp, stream))
                 .videoCodec(ci.videoRaw()).audioCodec(ci.audioRaw())
                 .build();
+            break;
           }
 
           case "reproxy":
@@ -111,7 +116,7 @@ public class OnDemandPlayService implements IOnDemandPlayService {
                 playProps.getWaitReadyMs(), playProps.getPollIntervalMs(),
                 "public stream not ready: " + publicApp + "/" + stream
             );
-            return NormalizeResult.builder()
+            out =  NormalizeResult.builder()
                 .browserFriendly(true)
                 .app(publicApp).stream(stream)
                 .urls(ZlmUrls.publicPlayUrls(zlmProperties, publicApp, stream))
@@ -119,27 +124,34 @@ public class OnDemandPlayService implements IOnDemandPlayService {
                 .build();
           }
         }
+      }else{
+          // 4) 不友好 → 走规范化（用你已有的一步流）
+          ProxyAndNormalizeReq req = new ProxyAndNormalizeReq();
+          req.setSchema("rtsp");
+          req.setApp(srcApp);
+          req.setStream(stream);
+          req.setUrl(videoVO.getRtspUrl());
+          req.setTransApp(publicApp);
+          req.setNaming("custom");
+          req.setCustomStream(stream); // 让输出就是 publicApp/stream
+          req.setPlayMode(target == PlayTarget.WEBRTC ? "WEBRTC" : "HLS_FLV");
+          req.setPreferNvenc(preferNvenc);
+          req.setRtpType(0);
+          req.setCloseWhenNoConsumer(true);
+          req.setWaitReadyMs(playProps.getWaitReadyMs());
+          req.setPollIntervalMs(playProps.getPollIntervalMs());
+          out = zlmService.addProxyAndNormalize(req);
+
       }
 
-      // 4) 不友好 → 走规范化（用你已有的一步流）
-      ProxyAndNormalizeReq req = new ProxyAndNormalizeReq();
-      req.setSchema("rtsp");
-      req.setApp(srcApp);
-      req.setStream(stream);
-      req.setUrl(videoVO.getRtspUrl());
-      req.setTransApp(publicApp);
-      req.setNaming("custom");
-      req.setCustomStream(stream); // 让输出就是 publicApp/stream
-      req.setPlayMode(target == PlayTarget.WEBRTC ? "WEBRTC" : "HLS_FLV");
-      req.setPreferNvenc(preferNvenc);
-      req.setRtpType(0);
-      req.setCloseWhenNoConsumer(true);
-      req.setWaitReadyMs(playProps.getWaitReadyMs());
-      req.setPollIntervalMs(playProps.getPollIntervalMs());
-
-      NormalizeResult out = zlmService.addProxyAndNormalize(req);
-      return out;
-
+        videoVO.setAudioCodec(ci.audioRaw());//更新音频编码
+        videoVO.setVideoCodec(ci.videoRaw());//更新视频编码
+        //更新ffmpeg的key、hls、webrtc播放路径
+        videoVO.setFfmpegCmdKey(out.getFfmpegCmdKey());
+        videoVO.setHlsUrl(out.getUrls().getHls());
+        videoVO.setWebRtcUrl(out.getUrls().getWhep());
+        videoService.updateVideo(videoVO);
+        return out;
     } finally {
       InflightLocks.release(lockKey);
     }
