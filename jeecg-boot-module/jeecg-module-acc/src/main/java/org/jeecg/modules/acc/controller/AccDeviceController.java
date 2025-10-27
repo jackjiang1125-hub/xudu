@@ -153,19 +153,11 @@ public class AccDeviceController {
     public Result<String> deleteBatch(@RequestParam String ids) {
         try {
             String[] idArray = ids.split(",");
-            List<String> snList = java.util.Arrays.stream(idArray)
-                    .map(accDeviceService::getById)
-                    .map(AccDeviceVO::getSn)
-                    .collect(Collectors.toList());
-            boolean success = accDeviceService.deleteBatch(idArray);
-            if (success) {
-                for (String sn : snList) {
-                    iotDeviceService.deleteByDeviceSn(sn);
-                }
-                return Result.OK("批量删除成功");
-            } else {
-                return Result.error("批量删除失败");
+            for (String id : idArray) {
+                accDeviceService.deleteByIdCustom(id);
             }
+            return Result.OK("批量删除成功");
+           
         } catch (Exception e) {
             log.error("批量删除设备失败", e);
             return Result.error("批量删除设备失败: " + e.getMessage());

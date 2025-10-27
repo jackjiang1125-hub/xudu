@@ -11,6 +11,7 @@ import org.jeecg.modules.acc.mapstruct.AccReaderMapstruct;
 import org.jeecg.modules.acc.service.IAccReaderService;
 import org.jeecg.modules.acc.vo.AccReaderVO;
 import org.springframework.stereotype.Service;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * @Description: 读头管理
@@ -52,5 +53,13 @@ public class AccReaderServiceImpl extends ServiceImpl<AccReaderMapper, AccReader
             // 更新
             return this.updateById(entity);
         }
+    }
+
+    @Override
+    public void removeByDeviceSn(String deviceSn) {
+        if (deviceSn == null) {
+            return;
+        }
+        this.remove(new LambdaQueryWrapper<AccReader>().eq(AccReader::getDeviceSn, deviceSn));
     }
 }

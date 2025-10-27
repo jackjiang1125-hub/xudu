@@ -55,4 +55,11 @@ public class AccReader extends JeecgEntity {
     @Schema(description = "出入类型")
     @TableField("type")
     private String type;
+
+    /**
+     * 设备sn
+     */
+    @Schema(description = "设备sn")
+    @TableField("device_sn")
+    private String deviceSn;
 }

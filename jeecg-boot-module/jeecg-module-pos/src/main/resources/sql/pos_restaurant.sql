@@ -1,0 +1,21 @@
+CREATE TABLE `pos_restaurant` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `restaurant_code` varchar(50) NOT NULL COMMENT '餐厅编码',
+  `restaurant_name` varchar(200) NOT NULL COMMENT '餐厅名称',
+  `category` varchar(50) DEFAULT NULL COMMENT '经营模式 (meal_type: 餐别, product: 商品)',
+  `dining_service_type` varchar(50) DEFAULT NULL COMMENT '餐厅类型 (restaurant: 餐厅, supermarket: 超市)',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  `create_by` varchar(50) DEFAULT NULL COMMENT '创建人',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by` varchar(50) DEFAULT NULL COMMENT '更新人',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `sys_org_code` varchar(64) DEFAULT NULL COMMENT '组织编码',
+  `tenant_id` varchar(50) DEFAULT NULL COMMENT '租户ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_restaurant_code` (`restaurant_code`),
+  KEY `idx_restaurant_name` (`restaurant_name`),
+  KEY `idx_category` (`category`),
+  KEY `idx_dining_service_type` (`dining_service_type`),
+  KEY `idx_sys_org_code` (`sys_org_code`),
+  KEY `idx_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='餐厅信息表';

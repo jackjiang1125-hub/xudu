@@ -25,6 +25,9 @@ public class AccTimePeriodController extends JeecgController<AccTimePeriod, IAcc
     @Autowired
     private IAccTimePeriodService timePeriodService;
 
+    /** 保留的时间段名称：初始化创建的 24 小时通行 */
+    private static final String RESERVED_NAME = "24小时通行";
+
     /**
      * 分页查询时间段
      */
@@ -57,6 +60,10 @@ public class AccTimePeriodController extends JeecgController<AccTimePeriod, IAcc
     @PostMapping("/add")
     @Operation(summary = "新增时间段")
     public Result<TimePeriodVO> add(@RequestBody TimePeriodVO vo) {
+        // 不允许新增与保留时间段同名的记录
+        if (vo != null && RESERVED_NAME.equals(vo.getName())) {
+            return Result.error("不允许使用保留名称：" + RESERVED_NAME);
+        }
         String operator = getOperator();
         TimePeriodVO saved = timePeriodService.saveVO(vo, operator);
         return Result.OK(saved);
@@ -68,6 +75,21 @@ public class AccTimePeriodController extends JeecgController<AccTimePeriod, IAcc
     @PutMapping("/edit")
     @Operation(summary = "编辑时间段")
     public Result<TimePeriodVO> edit(@RequestBody TimePeriodVO vo) {
+        // 如果目标为保留时间段，则禁止任何编辑
+        try {
+            if (vo != null && vo.getId() != null) {
+                AccTimePeriod existing = timePeriodService.getById(vo.getId());
+                if (existing != null && RESERVED_NAME.equals(existing.getName())) {
+                    return Result.error("保留时间段不可编辑：" + RESERVED_NAME);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("编辑前校验失败", e);
+        }
+        // 禁止将任何时间段名称修改为保留名称
+        if (vo != null && RESERVED_NAME.equals(vo.getName())) {
+            return Result.error("不可将名称修改为保留名称：" + RESERVED_NAME);
+        }
         String operator = getOperator();
         TimePeriodVO updated = timePeriodService.updateVO(vo, operator);
         return Result.OK(updated);
@@ -79,6 +101,15 @@ public class AccTimePeriodController extends JeecgController<AccTimePeriod, IAcc
     @DeleteMapping("/delete")
     @Operation(summary = "删除时间段")
     public Result<String> delete(@RequestParam String id) {
+        // 保留时间段不可删除
+        try {
+            AccTimePeriod existing = timePeriodService.getById(id);
+            if (existing != null && RESERVED_NAME.equals(existing.getName())) {
+                return Result.error("保留时间段不可删除：" + RESERVED_NAME);
+            }
+        } catch (Exception e) {
+            log.warn("删除前校验失败", e);
+        }
         boolean ok = timePeriodService.deleteWithDetails(id);
         return ok ? Result.OK("删除成功") : Result.error("删除失败");
     }
@@ -90,6 +121,17 @@ public class AccTimePeriodController extends JeecgController<AccTimePeriod, IAcc
     @Operation(summary = "批量删除时间段")
     public Result<String> deleteBatch(@RequestParam String ids) {
         String[] idArr = ids.split(",");
+        // 批量删除中如包含保留时间段则直接拒绝
+        try {
+            for (String id : idArr) {
+                AccTimePeriod existing = timePeriodService.getById(id);
+                if (existing != null && RESERVED_NAME.equals(existing.getName())) {
+                    return Result.error("包含保留时间段，无法删除：" + RESERVED_NAME);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量删除前校验失败", e);
+        }
         boolean ok = timePeriodService.deleteBatchWithDetails(idArr);
         return ok ? Result.OK("批量删除成功") : Result.error("批量删除失败");
     }

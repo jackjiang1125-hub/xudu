@@ -88,4 +88,10 @@ public class AccReaderVO implements Serializable {
      */
     @Schema(description = "出入类型")
     private String type;
+
+    /**
+     * 设备sn
+     */
+    @Schema(description = "设备sn")
+    private String deviceSn;
 }

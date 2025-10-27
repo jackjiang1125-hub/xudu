@@ -38,4 +38,10 @@ public interface IAccGroupDeviceService extends JeecgService<AccGroupDevice> {
      * @param deviceIds 设备ID列表
      */
     void removeDevices(String groupId, List<String> deviceIds);
+
+    /**
+     * 根据设备ID删除权限组关联
+     * @param deviceId 设备ID
+     */
+    void removeByDeviceId(String deviceId);
 }

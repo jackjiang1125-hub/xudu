@@ -19,4 +19,10 @@ public interface IAccDoorService extends IService<AccDoor> {
      * 保存VO（有ID则更新，无ID则新增）
      */
     AccDoor saveFromVO(AccDoorVO vo);
+
+    /**
+     * 删除门根据设备sn
+     */
+    void removeByDeviceSn(String deviceSn);
+        
 }

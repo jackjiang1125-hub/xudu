@@ -7,6 +7,8 @@ import org.jeecg.modules.acc.mapper.AccDeviceTempMapper;
 import org.jeecg.modules.acc.service.IAccDeviceTempService;
 import org.jeecgframework.boot.acc.vo.AccDeviceVO;
 import org.springframework.stereotype.Service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
 /**
@@ -30,5 +32,14 @@ public class AccDeviceTempServiceImpl extends ServiceImpl<AccDeviceTempMapper, A
         temp.setIsReset(reset != null ? reset : Boolean.FALSE);
         this.save(temp);
         log.info("[AccDeviceTemp] 已保存临时设备记录 SN={}, name={}, reboot={} ", temp.getSn(), temp.getDeviceName(), temp.getIsReset());
+    }
+
+    @Override
+    public void removeByDeviceSn(String sn) {
+        if (sn == null) {
+            return;
+        }
+        // 使用 Lambda 与列名两种方式删除，提升兼容性
+        this.remove(new LambdaQueryWrapper<AccDeviceTemp>().eq(AccDeviceTemp::getSn, sn));
     }
 }

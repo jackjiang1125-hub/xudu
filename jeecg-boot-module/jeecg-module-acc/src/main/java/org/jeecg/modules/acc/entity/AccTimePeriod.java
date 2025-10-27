@@ -27,4 +27,10 @@ public class AccTimePeriod extends JeecgEntity {
      */
     @TableField("remark")
     private String remark;
+
+    /**
+     * 排序（从1开始递增）
+     */
+    @TableField("sort_order")
+    private Integer sortOrder;
 }
