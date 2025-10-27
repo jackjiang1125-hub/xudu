@@ -48,4 +48,13 @@ public class AccDoorServiceImpl extends JeecgServiceImpl<AccDoorMapper, AccDoor>
         }
         return entity;
     }
+
+    @Override
+    public void removeByDeviceSn(String deviceSn) {
+        if (deviceSn == null) {
+            return;
+        }
+        // 使用 Lambda 与列名两种方式删除，提升兼容性
+        this.remove(new LambdaQueryWrapper<AccDoor>().eq(AccDoor::getDeviceSn, deviceSn));
+    }
 }

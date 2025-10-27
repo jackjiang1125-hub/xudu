@@ -112,4 +112,13 @@ public class AccGroupDeviceServiceImpl extends ServiceImpl<AccGroupDeviceMapper,
         qw.eq("group_id", groupId).in("device_id", deviceIds);
         this.remove(qw);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void removeByDeviceId(String deviceId) {
+        if (deviceId == null || deviceId.trim().isEmpty()) return;
+        QueryWrapper<AccGroupDevice> qw = new QueryWrapper<>();
+        qw.eq("device_id", deviceId);
+        this.remove(qw);
+    }
 }

@@ -14,4 +14,10 @@ public interface IAccDeviceTempService extends IService<AccDeviceTemp> {
      * @param deviceVO 设备信息（使用 sn、deviceName、isReset）
      */
     void saveFromVO(AccDeviceVO deviceVO);
+
+    /**
+     * 根据设备SN删除临时记录
+     * @param sn 设备SN
+     */
+    void removeByDeviceSn(String sn);
 }

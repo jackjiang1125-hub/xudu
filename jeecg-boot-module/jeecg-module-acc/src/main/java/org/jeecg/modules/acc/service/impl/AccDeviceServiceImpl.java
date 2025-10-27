@@ -4,6 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
+import org.jeecg.modules.acc.constants.AccAntiPassbackConstants;
+import org.jeecg.modules.acc.constants.AccDoorMaskFlagConstants;
+import org.jeecg.modules.acc.constants.AccFirstCardOpenDoorConstants;
+import org.jeecg.modules.acc.constants.AccInterlockConstants;
+import org.jeecg.modules.acc.constants.AccMultiCardOpenConstants;
+import org.jeecg.modules.acc.constants.AccOfflineAccessConstants;
 import org.jeecg.modules.acc.entity.AccDevice;
 import org.jeecg.modules.acc.entity.AccDoor;
 import org.jeecg.modules.acc.entity.AccReader;
@@ -14,6 +20,7 @@ import org.jeecg.modules.acc.mapstruct.AccDeviceQueryMapstruct;
 import org.jeecg.modules.acc.mapstruct.RegisterAccDeviceEventMapstruct;
 import org.jeecg.modules.acc.service.IAccDeviceTempService;
 import org.jeecg.modules.acc.service.IAccDoorService;
+import org.jeecg.modules.acc.service.IAccGroupDeviceService;
 import org.jeecg.modules.acc.service.IAccReaderService;
 import org.jeecg.modules.events.acc.RegisterAccDeviceEvent;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
@@ -60,6 +67,8 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
     @Autowired
     private IAccReaderService accReaderService;
 
+    @Autowired
+    private IAccGroupDeviceService accGroupDeviceService;
 
 //    @Override
 //    public PageResult<IotDeviceVO> list(AccDeviceQuery accDeviceQuery, PageRequest pageRequest, Map<String, String[]> queryParam) {
@@ -269,6 +278,7 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
             for (int j = 0; j < 2; j++) {
                 AccReader accReader = new AccReader();
 
+                accReader.setDeviceSn(accDevice.getSn());
                 accReader.setDoorName(accDoor.getDoorName());
                 accReader.setType(j == 0 ? "入" : "出");
                 accReader.setName(accDoor.getDoorName() + "-" + (j == 0 ? "入" : "出"));
@@ -420,6 +430,14 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
             log.warn("删除门禁设备记录失败 id={}", id);
             throw new org.jeecg.common.exception.JeecgBootException("删除门禁设备记录失败");
         }
+        
+        // 根据设备id删除对应的权限
+        accGroupDeviceService.removeByDeviceId(id);
+        // 删除对应的门列表和读头列表根据设备sn
+        accDoorService.removeByDeviceSn(sn);
+        accReaderService.removeByDeviceSn(sn);
+        // 删除门禁临时表
+        accDeviceTempService.removeByDeviceSn(sn);
 
         if (StringUtils.isNotBlank(sn)) {
             iotDeviceService.deleteByDeviceSn(sn);

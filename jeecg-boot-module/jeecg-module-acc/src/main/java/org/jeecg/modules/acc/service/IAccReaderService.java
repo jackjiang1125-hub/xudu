@@ -30,4 +30,10 @@ public interface IAccReaderService extends IService<AccReader> {
      * @return 是否成功
      */
     boolean saveFromVO(AccReaderVO vo);
+
+    /**
+     * 删除读头根据设备sn
+     */
+    void removeByDeviceSn(String deviceSn);
+        
 }
