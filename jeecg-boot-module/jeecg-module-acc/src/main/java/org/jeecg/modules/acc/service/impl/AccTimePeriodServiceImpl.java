@@ -13,15 +13,22 @@ import org.jeecg.modules.acc.service.IAccTimePeriodService;
 import org.jeecg.modules.acc.vo.TimeIntervalVO;
 import org.jeecg.modules.acc.vo.TimePeriodDetailVO;
 import org.jeecg.modules.acc.vo.TimePeriodVO;
+import org.jeecg.modules.acc.entity.AccDevice;
+import org.jeecg.modules.acc.mapper.AccDeviceMapper;
+import org.jeecgframework.boot.iot.api.IotDeviceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -32,6 +39,13 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
 
     @Autowired
     private AccTimePeriodDetailMapper detailMapper;
+
+    @Autowired
+    private IotDeviceService iotDeviceService;
+
+    @Autowired
+    private AccDeviceMapper accDeviceMapper;
+
 
     private static final SimpleDateFormat TS_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm");
     private static final SimpleDateFormat FULL_TS_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -63,7 +77,8 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
                 log.warn("解析结束时间失败: {}", updatedEnd, e);
             }
         }
-        qw.orderByDesc(AccTimePeriod::getUpdateTime);
+        // 先按排序字段升序，再按更新时间降序
+        qw.orderByAsc(AccTimePeriod::getSortOrder).orderByDesc(AccTimePeriod::getUpdateTime);
 
         Page<AccTimePeriod> page = new Page<>(pageNo == null ? 1 : pageNo, pageSize == null ? 10 : pageSize);
         IPage<AccTimePeriod> entityPage = this.page(page, qw);
@@ -91,6 +106,14 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         AccTimePeriod entity = new AccTimePeriod();
         entity.setName(vo.getName());
         entity.setRemark(vo.getRemark());
+        // 排序：从1开始，按当前总数递增
+        long total = this.count() + 1;
+        try {
+            entity.setSortOrder((int) total);
+        } catch (Exception e) {
+            log.warn("计算排序值失败，使用默认1", e);
+            entity.setSortOrder(1);
+        }
         entity.setCreateBy(operator);
         entity.setCreateTime(new Date());
         entity.setUpdateBy(operator);
@@ -100,6 +123,7 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         // 用新生成的ID保存详情
         String periodId = entity.getId();
         saveDetails(periodId, vo.getDetail());
+        pushTimezoneToAllDevices((int) total);
         return getDetailById(periodId);
     }
 
@@ -123,6 +147,7 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         // 先删后增详情
         detailMapper.delete(new LambdaQueryWrapper<AccTimePeriodDetail>().eq(AccTimePeriodDetail::getPeriodId, entity.getId()));
         saveDetails(entity.getId(), vo.getDetail());
+        pushTimezoneToAllDevices(entity.getSortOrder());
         return getDetailById(entity.getId());
     }
 
@@ -177,6 +202,7 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         vo.setId(entity.getId());
         vo.setName(entity.getName());
         vo.setRemark(entity.getRemark());
+        vo.setSortOrder(entity.getSortOrder());
         // 更新时间优先，其次创建时间
         Date ts = entity.getUpdateTime() != null ? entity.getUpdateTime() : entity.getCreateTime();
         vo.setUpdatedAt(ts == null ? null : TS_FMT.format(ts));
@@ -208,4 +234,110 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         seg.setEnd(end == null ? "00:00" : end);
         return seg;
     }
+
+    /**
+     * 将 HH:mm 文本转为设备时区整数（HHmm）。例如 "23:59" -> 2359, "00:00" -> 0。
+     */
+    private int toHHmmInt(String hhmm) {
+        if (hhmm == null || hhmm.isBlank()) return 0;
+        String s = hhmm.trim();
+        if ("00:00".equals(s)) return 0;
+        try {
+            String digits = s.replace(":", "");
+            // 去掉可能的前导0，例如 "0830" -> 830
+            return Integer.parseInt(digits);
+        } catch (Exception e) {
+            log.warn("解析时区时间失败: {}", hhmm, e);
+            return 0;
+        }
+    }
+
+    /**
+     * 根据时间段序号（sortOrder）构建设备时区参数
+     */
+    @Override
+    public LinkedHashMap<String, Object> buildTimezoneParamsByOrder(int order) {
+        // 查找对应的时间段记录
+        AccTimePeriod period = this.getOne(new LambdaQueryWrapper<AccTimePeriod>()
+                .eq(AccTimePeriod::getSortOrder, order)
+                .last("limit 1"), false);
+        if (period == null) {
+            throw new IllegalArgumentException("未找到序号对应的时间段: " + order);
+        }
+        List<AccTimePeriodDetail> details = detailMapper.selectList(new LambdaQueryWrapper<AccTimePeriodDetail>()
+                .eq(AccTimePeriodDetail::getPeriodId, period.getId()));
+
+        // 将 details 便于按 dayKey 索引
+        Map<String, AccTimePeriodDetail> byKey = new HashMap<>();
+        for (AccTimePeriodDetail d : details) {
+            byKey.put(d.getDayKey(), d);
+        }
+
+        LinkedHashMap<String, Object> tzBasic = new LinkedHashMap<>();
+        tzBasic.put("TimeZoneId", order);
+
+        // 映射每周与节假日键
+        fillDay(tzBasic, "Sun", byKey.get("sun"));
+        fillDay(tzBasic, "Mon", byKey.get("mon"));
+        fillDay(tzBasic, "Tue", byKey.get("tue"));
+        fillDay(tzBasic, "Wed", byKey.get("wed"));
+        fillDay(tzBasic, "Thu", byKey.get("thu"));
+        fillDay(tzBasic, "Fri", byKey.get("fri"));
+        fillDay(tzBasic, "Sat", byKey.get("sat"));
+        fillDay(tzBasic, "Hol1", byKey.get("holiday1"));
+        fillDay(tzBasic, "Hol2", byKey.get("holiday2"));
+        fillDay(tzBasic, "Hol3", byKey.get("holiday3"));
+
+        return tzBasic;
+    }
+
+    /**
+     * 将某天的三个时间段填充到参数中
+     */
+    private void fillDay(java.util.Map<String, Object> tzBasic, String prefix, AccTimePeriodDetail d) {
+        String k1 = prefix + "Time1";
+        String k2 = prefix + "Time2";
+        String k3 = prefix + "Time3";
+        if (d == null) {
+            tzBasic.put(k1, 0);
+            tzBasic.put(k2, 0);
+            tzBasic.put(k3, 0);
+            return;
+        }
+        tzBasic.put(k1, toHHmmInt(d.getSegment1End()));
+        tzBasic.put(k2, toHHmmInt(d.getSegment2End()));
+        tzBasic.put(k3, toHHmmInt(d.getSegment3End()));
+    }
+
+    /**
+     * 构建并下发设备时区设置
+     */
+    @Override
+    public void pushTimezoneByOrder(String sn, int order) {
+        if (sn == null || sn.isBlank()) {
+            log.warn("下发设备时区失败：SN为空");
+            return;
+        }
+        LinkedHashMap<String, Object> params;
+        try {
+            params = buildTimezoneParamsByOrder(order);
+        } catch (Exception e) {
+            log.error("构建设备时区参数失败，order={}", order, e);
+            return;
+        }
+        iotDeviceService.updateTimezone(sn, params);
+        log.info("已下发设备时区：sn={}, order={}", sn, order);
+    }
+
+    // 新增一个异步方法，获取所有设备列表，依次下发最新时间段信息
+    @Async
+    public void pushTimezoneToAllDevices(int order) {
+        List<AccDevice> devices = accDeviceMapper.selectList(new LambdaQueryWrapper<AccDevice>());
+        for (AccDevice device : devices) {
+            if (device != null && device.getSn() != null && !device.getSn().isBlank()) {
+                pushTimezoneByOrder(device.getSn(), order);
+            }
+        }
+    }
+
 }

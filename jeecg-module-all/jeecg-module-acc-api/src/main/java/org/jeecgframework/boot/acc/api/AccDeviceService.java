@@ -5,6 +5,7 @@ import org.jeecgframework.boot.acc.vo.AccDeviceVO;
 import org.jeecgframework.boot.common.vo.PageRequest;
 import org.jeecgframework.boot.common.vo.PageResult;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,6 +14,12 @@ import java.util.Map;
  * @date 2025-01-03
  */
 public interface AccDeviceService {
+
+    /**
+     * 获取所有有效设备（authorized=1）
+     * @return 设备列表
+     */
+    List<AccDeviceVO> getValidList();
 
 
     PageResult<AccDeviceVO> list(AccDeviceQuery accDeviceQuery,PageRequest pageRequest, Map<String,String[]> queryParam);

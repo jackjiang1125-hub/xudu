@@ -8,6 +8,7 @@ import org.jeecg.modules.acc.constants.*;
 import org.jeecg.modules.acc.entity.AccDevice;
 import org.jeecg.modules.acc.entity.AccDoor;
 import org.jeecg.modules.acc.entity.AccReader;
+import org.jeecg.modules.acc.entity.AccTimePeriod;
 import org.jeecg.modules.acc.entity.AccDeviceTemp;
 import org.jeecg.modules.acc.mapper.AccDeviceMapper;
 import org.jeecg.modules.acc.mapstruct.AccDeviceMapstruct;
@@ -17,6 +18,7 @@ import org.jeecg.modules.acc.service.IAccDeviceTempService;
 import org.jeecg.modules.acc.service.IAccDoorService;
 import org.jeecg.modules.acc.service.IAccGroupDeviceService;
 import org.jeecg.modules.acc.service.IAccReaderService;
+import org.jeecg.modules.acc.service.IAccTimePeriodService;
 import org.jeecg.modules.events.acc.RegisterAccDeviceEvent;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
@@ -29,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.jeecgframework.boot.iot.api.IotDeviceService;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -65,11 +69,15 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
     @Autowired
     private IAccGroupDeviceService accGroupDeviceService;
 
-//    @Override
-//    public PageResult<IotDeviceVO> list(AccDeviceQuery accDeviceQuery, PageRequest pageRequest, Map<String, String[]> queryParam) {
-//        //一行代码搞定 DT0->Entity  查询之后 entity->VO
-//
-//    }
+    @Autowired
+    private IAccTimePeriodService accTimePeriodService;
+
+
+    @Override
+    public List<AccDeviceVO> getValidList() {
+        LambdaQueryWrapper<AccDevice> queryWrapper = new LambdaQueryWrapper<>();
+        return accDeviceMapstruct.toVOList(this.list(queryWrapper));
+    }
 
 
     @Override
@@ -316,50 +324,22 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
         // 更新门禁时间段规则
         {
-            java.util.LinkedHashMap<String, Object> tzBasic = new java.util.LinkedHashMap<>();
-            tzBasic.put("TimeZoneId", 1);
-            tzBasic.put("SunTime1", 2359);
-            tzBasic.put("SunTime2", 0);
-            tzBasic.put("SunTime3", 0);
-            tzBasic.put("MonTime1", 2359);
-            tzBasic.put("MonTime2", 0);
-            tzBasic.put("MonTime3", 0);
-            tzBasic.put("TueTime1", 2359);
-            tzBasic.put("TueTime2", 0);
-            tzBasic.put("TueTime3", 0);
-            tzBasic.put("WedTime1", 2359);
-            tzBasic.put("WedTime2", 0);
-            tzBasic.put("WedTime3", 0);
-            tzBasic.put("ThuTime1", 2359);
-            tzBasic.put("ThuTime2", 0);
-            tzBasic.put("ThuTime3", 0);
-            tzBasic.put("FriTime1", 2359);
-            tzBasic.put("FriTime2", 0);
-            tzBasic.put("FriTime3", 0);
-            tzBasic.put("SatTime1", 2359);
-            tzBasic.put("SatTime2", 0);
-            tzBasic.put("SatTime3", 0);
-            tzBasic.put("Hol1Time1", 2359);
-            tzBasic.put("Hol1Time2", 0);
-            tzBasic.put("Hol1Time3", 0);
-            tzBasic.put("Hol2Time1", 2359);
-            tzBasic.put("Hol2Time2", 0);
-            tzBasic.put("Hol2Time3", 0);
-            tzBasic.put("Hol3Time1", 2359);
-            tzBasic.put("Hol3Time2", 0);
-            tzBasic.put("Hol3Time3", 0);
-            iotDeviceService.updateTimezone(sn, tzBasic);
+            // 获取时间段规则列表，循环下发
+            List<AccTimePeriod> timePeriodList = accTimePeriodService.list();
+            for (AccTimePeriod timePeriod : timePeriodList) {
+                iotDeviceService.updateTimezone(sn, accTimePeriodService.buildTimezoneParamsByOrder(timePeriod.getSortOrder()));
+            }
         }
         // 更新门的出入类型的输入控制（受时间段限制）
         {
-            java.util.LinkedHashMap<String, Integer> input0 = new java.util.LinkedHashMap<>();
+            LinkedHashMap<String, Integer> input0 = new LinkedHashMap<>();
             input0.put("Number", 1);
             input0.put("InType", 0);
             input0.put("TimeZoneId", 1);
             iotDeviceService.updateInputIOSetting(sn, input0);
         }
         {
-            java.util.LinkedHashMap<String, Integer> input1 = new java.util.LinkedHashMap<>();
+            LinkedHashMap<String, Integer> input1 = new LinkedHashMap<>();
             input1.put("Number", 1);
             input1.put("InType", 1);
             input1.put("TimeZoneId", 1);
@@ -376,7 +356,7 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
         // Door1Detectortime=15,Door1Intertime=0,SlaveIOState=0,Door1VerifyType=0,Reader1IOState=1,
         // Door1MultiCardInterTime=10,Door1ValidTZ=1,Door1SupperPassWord=,WiegandID=1,Door1ForcePassWord=,Door1KeepOpenTimeZone=0
         // TODO 这里很多参数后续要变更为真实的
-        Map<String, Integer> map = new java.util.LinkedHashMap<>();
+        Map<String, Integer> map = new LinkedHashMap<>();
         map.put("Door1CloseAndLock", 0);
         map.put("WiegandIDIn", 1);
         map.put("Door1Drivertime", 5);
@@ -395,7 +375,7 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
         iotDeviceService.setDoorRelatedParameter(sn, map);
         // 设置读头离线后是否正常通行 Reader2OfflineRefuse=0,Reader1OfflineRefuse=0,AutoServerMode=0
         {
-            java.util.LinkedHashMap<String, Integer> offlineParams = new java.util.LinkedHashMap<>();
+            LinkedHashMap<String, Integer> offlineParams = new LinkedHashMap<>();
             offlineParams.put("Reader2OfflineRefuse", AccOfflineAccessConstants.NORMAL);
             offlineParams.put("Reader1OfflineRefuse", AccOfflineAccessConstants.NORMAL);
             offlineParams.put("AutoServerMode", 0);
