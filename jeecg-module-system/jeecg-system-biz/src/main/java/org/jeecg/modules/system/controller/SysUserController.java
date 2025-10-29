@@ -1775,6 +1775,7 @@ public class SysUserController {
             @RequestParam(name = "roleId", required = false) String roleId,
             @RequestParam(name="keyword",required=false) String keyword,
             @RequestParam(name="excludeUserIdList",required = false) String excludeUserIdList,
+            @RequestParam(name="userType",required = false) String userType,
             HttpServletRequest req) {
         //------------------------------------------------------------------------------------------------
         Integer tenantId = null;
@@ -1785,7 +1786,7 @@ public class SysUserController {
             log.info("---------简流中选择用户接口，通过租户筛选，租户ID={}", tenantId);
         }
         //------------------------------------------------------------------------------------------------
-        IPage<SysUser> pageList = sysUserDepartService.getUserInformation(tenantId, departId,roleId, keyword, pageSize, pageNo,excludeUserIdList);
+        IPage<SysUser> pageList = sysUserDepartService.getUserInformation(tenantId, departId,roleId, keyword, pageSize, pageNo,excludeUserIdList, userType);
         return Result.OK(pageList);
     }
 

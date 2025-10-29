@@ -75,9 +75,11 @@ public interface ISysUserDepartService extends IService<SysUserDepart> {
 	 * @param keyword
 	 * @param pageSize
 	 * @param pageNo
+	 * @param excludeUserIdList 排除的用户ID列表，逗号分隔
+	 * @param userType 用户类型过滤（可为空，传"1"或"2"）
 	 * @return
 	 */
-	IPage<SysUser> getUserInformation(Integer tenantId,String departId,String roleId, String keyword, Integer pageSize, Integer pageNo, String excludeUserIdList);
+	IPage<SysUser> getUserInformation(Integer tenantId,String departId,String roleId, String keyword, Integer pageSize, Integer pageNo, String excludeUserIdList, String userType);
 
 	/**
 	 * 通过部门id和租户id获取多个用户

@@ -266,65 +266,82 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
         return pageList;
     }
 
-	@Override
-	public IPage<SysUser> getUserInformation(Integer tenantId, String departId,String roleId, String keyword, Integer pageSize, Integer pageNo, String excludeUserIdList) {
-		IPage<SysUser> pageList = null;
-		// 部门ID不存在 直接查询用户表即可
-		Page<SysUser> page = new Page<>(pageNo, pageSize);
-		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+    @Override
+    public IPage<SysUser> getUserInformation(Integer tenantId, String departId,String roleId, String keyword, Integer pageSize, Integer pageNo, String excludeUserIdList, String userType) {
+        IPage<SysUser> pageList = null;
+        // 部门ID不存在 直接查询用户表即可
+        Page<SysUser> page = new Page<>(pageNo, pageSize);
+        LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
 		
 		List<String> userIdList = new ArrayList<>();
 		if(oConvertUtils.isNotEmpty(excludeUserIdList)){
 			userIdList = Arrays.asList(excludeUserIdList.split(SymbolConstant.COMMA));
 		}
-		if(oConvertUtils.isNotEmpty(departId)){
-			// 有部门ID 需要走自定义sql
-			SysDepart sysDepart = sysDepartService.getById(departId);
-			//update-begin-author:taoyan date:2023-1-3 for: 用户选择组件 加载用户需要根据租户ID过滤
-			//update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			//update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			pageList = this.baseMapper.getProcessUserList(page, sysDepart.getOrgCode(), keyword, tenantId, userIdList);
-			//update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-		} else if (oConvertUtils.isNotEmpty(roleId)) {
-			//update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			pageList = this.sysUserMapper.selectUserListByRoleId(page, roleId, keyword, tenantId,userIdList);
-			//update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			//update-end-author:taoyan date:2023-1-3 for: 用户选择组件 加载用户需要根据租户ID过滤
-		} else{
-			LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<>();
-			query.eq(SysUser::getStatus,Integer.parseInt(CommonConstant.STATUS_1));
-			query.ne(SysUser::getUsername,"_reserve_user_external");
-			//update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			if(oConvertUtils.isNotEmpty(excludeUserIdList)){
-				query.notIn(SysUser::getId,Arrays.asList(excludeUserIdList.split(SymbolConstant.COMMA)));
+        if(oConvertUtils.isNotEmpty(departId)){
+            // 有部门ID 需要走自定义sql
+            SysDepart sysDepart = sysDepartService.getById(departId);
+            //update-begin-author:taoyan date:2023-1-3 for: 用户选择组件 加载用户需要根据租户ID过滤
+            //update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            //update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            pageList = this.baseMapper.getProcessUserList(page, sysDepart.getOrgCode(), keyword, tenantId, userIdList);
+            //update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+        } else if (oConvertUtils.isNotEmpty(roleId)) {
+            //update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            pageList = this.sysUserMapper.selectUserListByRoleId(page, roleId, keyword, tenantId,userIdList);
+            //update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            //update-end-author:taoyan date:2023-1-3 for: 用户选择组件 加载用户需要根据租户ID过滤
+        } else{
+            LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<>();
+            query.eq(SysUser::getStatus,Integer.parseInt(CommonConstant.STATUS_1));
+			if ("1".equals(userType)) {
+				query.ne(SysUser::getUsername,"_reserve_user_external");
 			}
-			//update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
-			// 支持租户隔离
-			if (tenantId != null) {
-				List<String> userIds = userTenantMapper.getUserIdsByTenantId(tenantId);
-				if(oConvertUtils.listIsNotEmpty(userIds)){
-					query.in(SysUser::getId, userIds);
-				}else{
-					query.eq(SysUser::getId,"通过租户ID查不到用户");
-				}
-			}
-			
-			if(StringUtils.isNotEmpty(keyword)){
-				//这个语法可以将or用括号包起来，避免数据查不到
-				query.and((wrapper) -> wrapper.like(SysUser::getUsername, keyword).or().like(SysUser::getRealname,keyword));
-			}
-			pageList = sysUserMapper.selectPage(page, query);
-		}
+            //update-begin---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            if(oConvertUtils.isNotEmpty(excludeUserIdList)){
+                query.notIn(SysUser::getId,Arrays.asList(excludeUserIdList.split(SymbolConstant.COMMA)));
+            }
+            //update-end---author:wangshuai---date:2024-02-02---for:【QQYUN-8239】用户角色，添加用户 返回2页数据，实际只显示一页---
+            // 用户类型过滤（仅在无部门/无角色时通过 Wrapper 直接过滤）
+            if (oConvertUtils.isNotEmpty(userType)) {
+                try {
+                    Integer userTypeInt = Integer.valueOf(userType);
+                    query.eq(SysUser::getUserType, userTypeInt);
+                } catch (Exception ignore) {}
+            }
+            // 支持租户隔离
+            if (tenantId != null) {
+                List<String> userIds = userTenantMapper.getUserIdsByTenantId(tenantId);
+                if(oConvertUtils.listIsNotEmpty(userIds)){
+                    query.in(SysUser::getId, userIds);
+                }else{
+                    query.eq(SysUser::getId,"通过租户ID查不到用户");
+                }
+            }
+            
+            if(StringUtils.isNotEmpty(keyword)){
+                //这个语法可以将or用括号包起来，避免数据查不到
+                query.and((wrapper) -> wrapper.like(SysUser::getUsername, keyword).or().like(SysUser::getRealname,keyword));
+            }
+            pageList = sysUserMapper.selectPage(page, query);
+        }
 		// 批量查询用户的所属部门
 		// step.1 先拿到全部的 useids
 		// step.2 通过 useids，一次性查询用户的所属部门名字
-		List<String> userIds = pageList.getRecords().stream().map(SysUser::getId).collect(Collectors.toList());
-		if (userIds.size() > 0) {
-			Map<String, String> useDepNames = sysUserService.getDepNamesByUserIds(userIds);
-			pageList.getRecords().forEach(item -> item.setOrgCodeTxt(useDepNames.get(item.getId())));
-		}
-		return pageList;
-	}
+        // 后置：根据 userType 进行结果集过滤（部门/角色查询无法在SQL层过滤时作为兜底）
+        if (oConvertUtils.isNotEmpty(userType)) {
+            List<SysUser> filtered = pageList.getRecords().stream()
+                    .filter(u -> userType.equals(String.valueOf(u.getUserType())))
+                    .collect(Collectors.toList());
+            pageList.setRecords(filtered);
+        }
+
+        List<String> userIds = pageList.getRecords().stream().map(SysUser::getId).collect(Collectors.toList());
+        if (userIds.size() > 0) {
+            Map<String, String> useDepNames = sysUserService.getDepNamesByUserIds(userIds);
+            pageList.getRecords().forEach(item -> item.setOrgCodeTxt(useDepNames.get(item.getId())));
+        }
+        return pageList;
+    }
 
 	@Override
 	public List<SysUser> getUsersByDepartTenantId(String departId, Integer tenantId) {
