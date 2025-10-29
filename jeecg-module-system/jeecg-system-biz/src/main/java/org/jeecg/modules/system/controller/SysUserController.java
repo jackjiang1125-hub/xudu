@@ -13,10 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.PermissionData;
-import org.jeecg.common.base.BaseMap;
 import org.jeecg.common.config.TenantContext;
 import org.jeecg.common.constant.CommonConstant;
 import org.jeecg.common.constant.SymbolConstant;
@@ -31,7 +29,8 @@ import org.jeecg.modules.system.entity.*;
 import org.jeecg.modules.system.model.DepartIdModel;
 import org.jeecg.modules.system.model.SysUserSysDepartModel;
 import org.jeecg.modules.system.service.*;
-import org.jeecg.modules.system.service.ISysFaceCutoutService;
+import com.xudu.center.facecrop.model.FaceCropResponse;
+import com.xudu.center.facecrop.service.IFaceCropService;
 import org.jeecg.modules.system.vo.SysDepartUsersVO;
 import org.jeecg.modules.system.vo.SysUserRoleVO;
 import org.jeecg.modules.system.vo.lowapp.DepartAndUserInfo;
@@ -41,6 +40,7 @@ import org.jeecgframework.poi.excel.def.NormalExcelConstants;
 import org.jeecgframework.poi.excel.entity.ExportParams;
 import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
+import org.jeecg.modules.system.util.FaceImageUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -51,8 +51,17 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Base64;
 
 /**
  * <p>
@@ -66,6 +75,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/sys/user")
 public class SysUserController {
+    private static final long MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB 限制，避免大图占用内存
 
 	@Autowired
 	private ISysUserService sysUserService;
@@ -107,7 +117,40 @@ public class SysUserController {
     private JeecgRedisClient jeecgRedisClient;
 
     @Autowired
-    private ISysFaceCutoutService faceCutoutService;
+    private IFaceCropService faceCropService;
+
+    /**
+     * 解析 avatar（支持 http/https、本地相对/绝对路径、data:image Base64）为本地物理路径
+     * 返回可读取的本地文件路径；解析失败返回 null
+     */
+    private String resolveAvatarToLocalPath(String avatar) {
+        // 委托工具：解析并压缩到 30-70KB，本地临时 jpg 文件
+        String path = FaceImageUtil.resolveAvatarToCompressedTempPath(avatar, upLoadPath, MAX_IMAGE_BYTES, 30, 70);
+        if (path == null) {
+            log.warn("解析/压缩头像失败，avatar={}", avatar);
+        }
+        return path;
+    }
+
+    /**
+     * 构建抠图输出目标路径（物理 + DB相对路径）
+     */
+    private TargetPath buildFacecropTargetPath(String username) {
+        FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPath(upLoadPath, username);
+        // 仅改后缀为 .jpg，压缩在 facecrop 模块内部完成
+        String phys = tp.physicalPath.replaceFirst("(?i)\\.png$", ".jpg");
+        String db = tp.dbPath.replaceFirst("(?i)\\.png$", ".jpg");
+        return new TargetPath(phys, db);
+    }
+
+    private static class TargetPath {
+        final String physicalPath;
+        final String dbPath;
+        TargetPath(String physicalPath, String dbPath) {
+            this.physicalPath = physicalPath;
+            this.dbPath = dbPath;
+        }
+    }
     
     /**
      * 获取租户下用户数据（支持租户隔离）
@@ -182,16 +225,29 @@ public class SysUserController {
 			user.setDelFlag(CommonConstant.DEL_FLAG_0);
 			//用户表字段org_code不能在这里设置他的值
             user.setOrgCode(null);
-            // 人脸抠图生成（avatar 存在时）
+            // 人脸抠图生成（avatar 存在时）：调用 xudu-module-facecrop 专用方法
             try {
                 if (oConvertUtils.isNotEmpty(user.getAvatar())) {
-                    String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(user.getAvatar());
-                    if (oConvertUtils.isNotEmpty(dbPath)) {
-                        user.setFaceCutout(dbPath);
+                    String srcPath = resolveAvatarToLocalPath(user.getAvatar());
+                    if (srcPath != null) {
+                        TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                        FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                        if (resp != null && resp.isSuccess()) {
+                            user.setFaceCutout(tp.dbPath);
+                            log.info("用户添加-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
+                        } else {
+                            log.warn("用户添加-人脸抠图失败: username={}, status={}, code={}, msg={}",
+                                    user.getUsername(),
+                                    (resp==null?null:resp.getStatus()),
+                                    (resp==null?null:resp.getCode()),
+                                    (resp==null?null:resp.getMessage()));
+                        }
+                    } else {
+                        log.warn("用户添加-头像路径无法解析，跳过抠图: username={}, avatar={}", user.getUsername(), user.getAvatar());
                     }
                 }
             } catch (Throwable e2) {
-                log.warn("用户添加-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+                log.warn("用户添加-人脸抠图异常，忽略并继续: {}", e2.getMessage());
             }
             // 保存用户走一个service 保证事务
             //获取租户ids
@@ -228,19 +284,32 @@ public class SysUserController {
                 }
                 //用户表字段org_code不能在这里设置他的值
                 user.setOrgCode(null);
-                // 如果头像变更，生成新的抠图
+                // 如果头像变更，生成新的抠图（调用 xudu facecrop）
                 try {
                     String newAvatar = user.getAvatar();
                     String oldAvatar = sysUser.getAvatar();
                     boolean avatarChanged = oConvertUtils.isNotEmpty(newAvatar) && !org.apache.commons.lang.StringUtils.equals(newAvatar, oldAvatar);
                     if (avatarChanged) {
-                        String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(newAvatar);
-                        if (oConvertUtils.isNotEmpty(dbPath)) {
-                            user.setFaceCutout(dbPath);
+                        String srcPath = resolveAvatarToLocalPath(newAvatar);
+                        if (srcPath != null) {
+                            TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                            FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                            if (resp != null && resp.isSuccess()) {
+                                user.setFaceCutout(tp.dbPath);
+                                log.info("用户编辑-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
+                            } else {
+                                log.warn("用户编辑-人脸抠图失败: username={}, status={}, code={}, msg={}",
+                                        user.getUsername(),
+                                        (resp==null?null:resp.getStatus()),
+                                        (resp==null?null:resp.getCode()),
+                                        (resp==null?null:resp.getMessage()));
+                            }
+                        } else {
+                            log.warn("用户编辑-头像路径无法解析，跳过抠图: username={}, avatar={}", user.getUsername(), newAvatar);
                         }
                     }
                 } catch (Throwable e2) {
-                    log.warn("用户编辑-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+                    log.warn("用户编辑-人脸抠图异常，忽略并继续: {}", e2.getMessage());
                 }
                 // 修改用户走一个service 保证事务
                 //获取租户ids
@@ -260,34 +329,74 @@ public class SysUserController {
 	 * 删除用户
 	 */
     @RequiresPermissions("system:user:delete")
-	@RequestMapping(value = "/delete", method = RequestMethod.DELETE)
-	public Result<?> delete(@RequestParam(name="id",required=true) String id) {
-		baseCommonService.addLog("删除用户，id： " +id ,CommonConstant.LOG_TYPE_2, 3);
+    @RequestMapping(value = "/delete", method = RequestMethod.DELETE)
+    public Result<?> delete(@RequestParam(name="id",required=true) String id) {
+        baseCommonService.addLog("删除用户，id： " +id ,CommonConstant.LOG_TYPE_2, 3);
         List<String> userNameList = sysUserService.userIdToUsername(Arrays.asList(id));
-		this.sysUserService.deleteUser(id);
+        // 记录需要清理的抠图文件路径（DB相对路径）
+        String facePath = null;
+        try {
+            SysUser u = sysUserService.getById(id);
+            if (u != null) facePath = u.getFaceCutout();
+        } catch (Exception ignore) {}
+
+        this.sysUserService.deleteUser(id);
+
+        // 删除关联的抠图文件（若存在），不影响主流程
+        try {
+            if (oConvertUtils.isNotEmpty(facePath)) {
+                String physical = FaceImageUtil.resolveDbPathToPhysical(upLoadPath, facePath);
+                Files.deleteIfExists(Paths.get(physical));
+            }
+        } catch (Exception e) {
+            log.warn("删除用户-清理抠图文件失败: id={}, path={}, err={}", id, facePath, e.getMessage());
+        }
 
         if (!userNameList.isEmpty()) {
             String joinedString = String.join(",", userNameList);
         }
-		return Result.ok("删除用户成功");
-	}
+        return Result.ok("删除用户成功");
+    }
 
 	/**
 	 * 批量删除用户
 	 */
     @RequiresPermissions("system:user:deleteBatch")
-	@RequestMapping(value = "/deleteBatch", method = RequestMethod.DELETE)
-	public Result<?> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-		baseCommonService.addLog("批量删除用户， ids： " +ids ,CommonConstant.LOG_TYPE_2, 3);
+    @RequestMapping(value = "/deleteBatch", method = RequestMethod.DELETE)
+    public Result<?> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
+        baseCommonService.addLog("批量删除用户， ids： " +ids ,CommonConstant.LOG_TYPE_2, 3);
         List<String> userNameList = sysUserService.userIdToUsername(Arrays.asList(ids.split(",")));
-		this.sysUserService.deleteBatchUsers(ids);
-		
+        // 记录待清理的抠图文件路径
+        List<String> facePaths = new ArrayList<>();
+        try {
+            for (String id : ids.split(",")) {
+                if (oConvertUtils.isNotEmpty(id)) {
+                    SysUser u = sysUserService.getById(id);
+                    if (u != null && oConvertUtils.isNotEmpty(u.getFaceCutout())) {
+                        facePaths.add(u.getFaceCutout());
+                    }
+                }
+            }
+        } catch (Exception ignore) {}
+
+        this.sysUserService.deleteBatchUsers(ids);
+
+        // 批量删除抠图文件，不影响主流程
+        for (String facePath : facePaths) {
+            try {
+                String physical = FaceImageUtil.resolveDbPathToPhysical(upLoadPath, facePath);
+                Files.deleteIfExists(Paths.get(physical));
+            } catch (Exception e) {
+                log.warn("批量删除用户-清理抠图文件失败: path={}, err={}", facePath, e.getMessage());
+            }
+        }
+
         // 用户变更，触发同步工作流
         if (!userNameList.isEmpty()) {
             String joinedString = String.join(",", userNameList);
         }
-		return Result.ok("批量删除用户成功");
-	}
+        return Result.ok("批量删除用户成功");
+    }
 
 	/**
 	  * 冻结&解冻用户
@@ -1404,12 +1513,25 @@ public class SysUserController {
                 if(StringUtils.isNotBlank(avatar)){
                     sysUser.setAvatar(avatar);
                     try {
-                        String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(avatar);
-                        if (oConvertUtils.isNotEmpty(dbPath)) {
-                            sysUser.setFaceCutout(dbPath);
+                        String srcPath = resolveAvatarToLocalPath(avatar);
+                        if (srcPath != null) {
+                            TargetPath tp = buildFacecropTargetPath(sysUser.getUsername());
+                            FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                            if (resp != null && resp.isSuccess()) {
+                                sysUser.setFaceCutout(tp.dbPath);
+                                log.info("移动端编辑-人脸抠图成功: username={}, dbPath={}, durationMs={}", sysUser.getUsername(), tp.dbPath, resp.getDurationMs());
+                            } else {
+                                log.warn("移动端编辑-人脸抠图失败: username={}, status={}, code={}, msg={}",
+                                        sysUser.getUsername(),
+                                        (resp==null?null:resp.getStatus()),
+                                        (resp==null?null:resp.getCode()),
+                                        (resp==null?null:resp.getMessage()));
+                            }
+                        } else {
+                            log.warn("移动端编辑-头像路径无法解析，跳过抠图: username={}, avatar={}", sysUser.getUsername(), avatar);
                         }
                     } catch (Throwable e2) {
-                        log.warn("移动端编辑-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+                        log.warn("移动端编辑-人脸抠图异常，忽略并继续: {}", e2.getMessage());
                     }
                 }
                 if(StringUtils.isNotBlank(sex)){

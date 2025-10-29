@@ -21,6 +21,7 @@
         <module>xudu-module-zlm</module>
         <module>xudu-module-video</module>
         <module>xudu-module-hkclients</module>
+        <module>xudu-module-facecrop</module>
     </modules>
 
 

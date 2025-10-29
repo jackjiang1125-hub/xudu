@@ -1,0 +1,19 @@
+face:
+  inputDir: E:\develop\study\photos                   # 输入图片目录（相对项目根目录或绝对路径）
+  outputDir: E:\develop\study\photos\faces                      # 输出目录（裁剪与CSV报告）
+  minSizePx: 60                       # 检测器最小人脸像素
+  threads: 4                          # 并发线程数（建议≈CPU核数）
+  onlyKeepLargestFace: false           # 是否仅保留最大脸
+  maxFacesPerImage: 1                 # 每张图最多输出的人脸数（onlyKeepLargestFace=false时生效）
+  quality:
+    minFaceWidthRatio: 0.12
+    minMean: 0.20
+    maxMean: 0.85
+    maxUnderExpRatio: 0.25
+    maxOverExpRatio: 0.10
+
+    minStd: 0.07
+    minVarLap: 60.0
+    maxSymDiff: 0.10
+    maxIllumDiff: 0.12
+    marginRatio: 0.10
