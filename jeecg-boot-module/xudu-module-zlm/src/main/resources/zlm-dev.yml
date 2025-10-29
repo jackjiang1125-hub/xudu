@@ -1,9 +1,9 @@
 zlm:
-  base-url: http://192.168.51.213:8083                  # ZLM 的 HTTP API 基础地址
+  base-url: http://127.0.0.1:8083                  # ZLM 的 HTTP API 基础地址
   secret: 891125jwz
 
   # 给应用层暴露播放地址（HLS/FLV/WHEP/RTSP），之前你就有
-  public-http-base: http://192.168.51.213:8083
+  public-http-base: http://127.0.0.1:8083
   public-rtsp-host: 127.0.0.1:554
 
   # —— 新增：给 ZLM“回推”用的内部发布地址（别再写死 127.0.0.1）——

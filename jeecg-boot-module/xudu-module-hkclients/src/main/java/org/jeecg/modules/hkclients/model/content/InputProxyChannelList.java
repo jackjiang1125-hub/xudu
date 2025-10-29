@@ -1,72 +1,62 @@
 package org.jeecg.modules.hkclients.model.content;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import javax.xml.bind.annotation.*;
-import java.util.ArrayList;
 import java.util.List;
 
-@Data @NoArgsConstructor
-@XmlRootElement(name = "InputProxyChannelList", namespace = InputProxyChannelList.HK_NS)
-@XmlAccessorType(XmlAccessType.FIELD)
+/**
+ * Jackson-XML 版 InputProxyChannelList
+ * 适配：/ISAPI/ContentMgmt/InputProxy/channels
+ */
+@Data
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JacksonXmlRootElement(localName = "InputProxyChannelList")
 public class InputProxyChannelList {
-    public static final String HK_NS = "http://www.isapi.org/ver20/XMLSchema";
 
-    @XmlAttribute(name = "version")
-    private String version;
+    @JacksonXmlElementWrapper(useWrapping = false)
+    @JacksonXmlProperty(localName = "InputProxyChannel")
+    private List<InputProxyChannel> channels;
 
-    @XmlAttribute(name = "size")
-    private Integer size;
-
-    @XmlElement(name = "InputProxyChannel", namespace = HK_NS)
-    private List<InputProxyChannel> channels = new ArrayList<>();
-
-    @Data @NoArgsConstructor @XmlAccessorType(XmlAccessType.FIELD)
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class InputProxyChannel {
-        @XmlElement(name = "id", namespace = HK_NS) private Integer id;
-        @XmlElement(name = "name", namespace = HK_NS) private String name;
-        @XmlElement(name = "online", namespace = HK_NS) private Boolean online;
-        @XmlElement(name = "certificateValidationEnabled", namespace = HK_NS)
-        private Boolean certificateValidationEnabled;
-        @XmlElement(name = "defaultAdminPortEnabled", namespace = HK_NS)
-        private Boolean defaultAdminPortEnabled;
-        @XmlElement(name = "enableAnr", namespace = HK_NS)
-        private Boolean enableAnr;
-        @XmlElement(name = "enableTiming", namespace = HK_NS)
-        private Boolean enableTiming;
-        @XmlElement(name = "sourceInputPortDescriptor", namespace = HK_NS)
+        @JacksonXmlProperty(localName = "id")
+        private Integer id;
+
+        @JacksonXmlProperty(localName = "name")
+        private String name;
+
+        @JacksonXmlProperty(localName = "online")
+        private Boolean online;
+
+        @JacksonXmlProperty(localName = "sourceInputPortDescriptor")
         private SourceInputPortDescriptor sourceInputPortDescriptor;
     }
 
-    @Data @NoArgsConstructor @XmlAccessorType(XmlAccessType.FIELD)
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SourceInputPortDescriptor {
-        @XmlElement(name = "proxyProtocol", namespace = HK_NS)
-        private String proxyProtocol;
-        @XmlElement(name = "addressingFormatType", namespace = HK_NS)
-        private String addressingFormatType;
-        @XmlElement(name = "ipAddress", namespace = HK_NS)
+        @JacksonXmlProperty(localName = "ipAddress")
         private String ipAddress;
-        @XmlElement(name = "managePortNo", namespace = HK_NS)
-        private Integer managePortNo;
-        @XmlElement(name = "srcInputPort", namespace = HK_NS)
-        private Integer srcInputPort;
-        @XmlElement(name = "manufacturer", namespace = HK_NS)
-        private String manufacturer;
-        @XmlElement(name = "model", namespace = HK_NS)
-        private String model = "未知";
 
-        @XmlElement(name = "serialNumber", namespace = HK_NS)
+        @JacksonXmlProperty(localName = "manufacturer")
+        private String manufacturer;
+
+        @JacksonXmlProperty(localName = "model")
+        private String model;
+
+        // 海康私有协议（SDK/管理端口，常见 8000）
+        @JacksonXmlProperty(localName = "managePortNo")
+        private Integer managePortNo;
+
+        @JacksonXmlProperty(localName = "serialNumber")
         private String serialNumber;
-        @XmlElement(name = "userName", namespace = HK_NS)
+
+        @JacksonXmlProperty(localName = "userName")
         private String userName;
-        @XmlElement(name = "password", namespace = HK_NS)
-        private String password;
-        @XmlElement(name = "streamType", namespace = HK_NS)
-        private String streamType;
-        @XmlElement(name = "deviceID", namespace = HK_NS)
-        private String deviceID;
-        @XmlElement(name = "getStream", namespace = HK_NS)
-        private Boolean getStream;
     }
 }

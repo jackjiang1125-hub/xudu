@@ -1,28 +1,58 @@
 package org.jeecg.modules.hkclients.model.system;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import javax.xml.bind.annotation.*;
-
-@Data @NoArgsConstructor
-@XmlRootElement(name = "DeviceInfo", namespace = DeviceInfo.HK_NS)
-@XmlAccessorType(XmlAccessType.FIELD)
+/**
+ * Jackson-XML 版 DeviceInfo（无 JAXB，无 namespace 约束）
+ */
+@Data
+@JsonIgnoreProperties(ignoreUnknown = true)
+@JacksonXmlRootElement(localName = "DeviceInfo")
 public class DeviceInfo {
-    public static final String HK_NS = "http://www.hikvision.com/ver20/XMLSchema";
 
-    @XmlElement(name = "deviceName", namespace = HK_NS) private String deviceName;
-    @XmlElement(name = "deviceID", namespace = HK_NS) private String deviceID;
-    @XmlElement(name = "model", namespace = HK_NS) private String model;
-    @XmlElement(name = "serialNumber", namespace = HK_NS) private String serialNumber;
-    @XmlElement(name = "macAddress", namespace = HK_NS) private String macAddress;
-    @XmlElement(name = "firmwareVersion", namespace = HK_NS) private String firmwareVersion;
-    @XmlElement(name = "firmwareReleasedDate", namespace = HK_NS) private String firmwareReleasedDate;
-    @XmlElement(name = "encoderVersion", namespace = HK_NS) private String encoderVersion;
-    @XmlElement(name = "encoderReleasedDate", namespace = HK_NS) private String encoderReleasedDate;
-    @XmlElement(name = "deviceType", namespace = HK_NS) private String deviceType;
-    @XmlElement(name = "telecontrolID", namespace = HK_NS) private String telecontrolID;
-    @XmlElement(name = "hardwareVersion", namespace = HK_NS) private String hardwareVersion;
-    @XmlElement(name = "manufacturer", namespace = HK_NS) private String manufacturer;
-    @XmlElement(name = "ipv4Address", namespace = HK_NS) private String ipv4Address;
+    @JacksonXmlProperty(localName = "deviceName")
+    private String deviceName;
+
+    @JacksonXmlProperty(localName = "deviceID")
+    private String deviceID;
+
+    @JacksonXmlProperty(localName = "model")
+    private String model;
+
+    @JacksonXmlProperty(localName = "serialNumber")
+    private String serialNumber;
+
+    @JacksonXmlProperty(localName = "macAddress")
+    private String macAddress;
+
+    @JacksonXmlProperty(localName = "firmwareVersion")
+    private String firmwareVersion;
+
+    @JacksonXmlProperty(localName = "firmwareReleasedDate")
+    private String firmwareReleasedDate;
+
+    @JacksonXmlProperty(localName = "encoderVersion")
+    private String encoderVersion;
+
+    @JacksonXmlProperty(localName = "encoderReleasedDate")
+    private String encoderReleasedDate;
+
+    @JacksonXmlProperty(localName = "deviceType")
+    private String deviceType;
+
+    @JacksonXmlProperty(localName = "telecontrolID")
+    private String telecontrolID;
+
+    @JacksonXmlProperty(localName = "hardwareVersion")
+    private String hardwareVersion;
+
+    @JacksonXmlProperty(localName = "manufacturer")
+    private String manufacturer;
+
+    // 个别固件会返回 ipv4Address
+    @JacksonXmlProperty(localName = "ipv4Address")
+    private String ipv4Address;
 }

@@ -13,8 +13,6 @@
 
   <properties>
     <httpclient.version>4.5.14</httpclient.version>
-    <jaxb.api.version>2.3.1</jaxb.api.version>
-    <jaxb.impl.version>2.3.6</jaxb.impl.version>
   </properties>
 
   <dependencies>
@@ -29,19 +27,14 @@
       <version>${httpclient.version}</version>
     </dependency>
 
-    <!-- JAXB (javax namespace) -->
-    <dependency>
-      <groupId>javax.xml.bind</groupId>
-      <artifactId>jaxb-api</artifactId>
-      <version>${jaxb.api.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-runtime</artifactId>
-      <version>${jaxb.impl.version}</version>
-    </dependency>
+      <dependency>
+          <groupId>com.fasterxml.jackson.dataformat</groupId>
+          <artifactId>jackson-dataformat-xml</artifactId>
+      </dependency>
 
-    <!-- JUnit 5 -->
+
+
+      <!-- JUnit 5 -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
