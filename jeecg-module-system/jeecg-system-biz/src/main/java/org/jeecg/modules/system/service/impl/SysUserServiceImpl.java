@@ -134,27 +134,34 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 	@Override
 	public Result<IPage<SysUser>> queryPageList(HttpServletRequest req, QueryWrapper<SysUser> queryWrapper, Integer pageSize, Integer pageNo) {
 		Result<IPage<SysUser>> result = new Result<IPage<SysUser>>();
+		// 当查询条件为业务用户(userType=2)时，走独立查询路径：跳过部门过滤与代码过滤
+		String userTypeParam = req.getParameter("userType");
+		boolean isBizUser = "2".equals(userTypeParam);
 		//update-begin-Author:wangshuai--Date:20211119--for:【vue3】通过部门id查询用户，通过code查询id
 		//部门ID
 		String departId = req.getParameter("departId");
-		if (oConvertUtils.isNotEmpty(departId)) {
-			LambdaQueryWrapper<SysUserDepart> query = new LambdaQueryWrapper<>();
-			query.eq(SysUserDepart::getDepId, departId);
-			List<SysUserDepart> list = sysUserDepartMapper.selectList(query);
-			List<String> userIds = list.stream().map(SysUserDepart::getUserId).collect(Collectors.toList());
-			//update-begin---author:wangshuai ---date:20220322  for：[issues/I4XTYB]查询用户时，当部门id 下没有分配用户时接口报错------------
-			if (oConvertUtils.listIsNotEmpty(userIds)) {
-				queryWrapper.in("id", userIds);
-			} else {
-				return Result.OK();
+		if (!isBizUser) {
+			if (oConvertUtils.isNotEmpty(departId)) {
+				LambdaQueryWrapper<SysUserDepart> query = new LambdaQueryWrapper<>();
+				query.eq(SysUserDepart::getDepId, departId);
+				List<SysUserDepart> list = sysUserDepartMapper.selectList(query);
+				List<String> userIds = list.stream().map(SysUserDepart::getUserId).collect(Collectors.toList());
+				//update-begin---author:wangshuai ---date:20220322  for：[issues/I4XTYB]查询用户时，当部门id 下没有分配用户时接口报错------------
+				if (oConvertUtils.listIsNotEmpty(userIds)) {
+					queryWrapper.in("id", userIds);
+				} else {
+					return Result.OK();
+				}
+				//update-end---author:wangshuai ---date:20220322  for：[issues/I4XTYB]查询用户时，当部门id 下没有分配用户时接口报错------------
 			}
-			//update-end---author:wangshuai ---date:20220322  for：[issues/I4XTYB]查询用户时，当部门id 下没有分配用户时接口报错------------
 		}
 		//用户ID
 		String code = req.getParameter("code");
-		if (oConvertUtils.isNotEmpty(code)) {
-			queryWrapper.in("id", Arrays.asList(code.split(",")));
-			pageSize = code.split(",").length;
+		if (!isBizUser) {
+			if (oConvertUtils.isNotEmpty(code)) {
+				queryWrapper.in("id", Arrays.asList(code.split(",")));
+				pageSize = code.split(",").length;
+			}
 		}
 		//update-end-Author:wangshuai--Date:20211119--for:【vue3】通过部门id查询用户，通过code查询id
 
@@ -179,8 +186,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 //		}
 		//update-end---author:wangshuai---date:2024-03-08---for:【QQYUN-8110】在线通讯录支持设置权限(只能看分配的技术支持)---
 		
-		//TODO 外部模拟登陆临时账号，列表不显示
-		queryWrapper.ne("username", "_reserve_user_external");
+		//TODO 外部模拟登陆临时账号，列表不显示（允许 username 为空）
+		if (!isBizUser) {
+			queryWrapper.and(w -> w.ne("username", "_reserve_user_external").or().isNull("username"));
+		}
 		Page<SysUser> page = new Page<SysUser>(pageNo, pageSize);
 		IPage<SysUser> pageList = this.page(page, queryWrapper);
 

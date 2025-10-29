@@ -31,6 +31,7 @@ import org.jeecg.modules.system.entity.*;
 import org.jeecg.modules.system.model.DepartIdModel;
 import org.jeecg.modules.system.model.SysUserSysDepartModel;
 import org.jeecg.modules.system.service.*;
+import org.jeecg.modules.system.service.ISysFaceCutoutService;
 import org.jeecg.modules.system.vo.SysDepartUsersVO;
 import org.jeecg.modules.system.vo.SysUserRoleVO;
 import org.jeecg.modules.system.vo.lowapp.DepartAndUserInfo;
@@ -104,6 +105,9 @@ public class SysUserController {
 
     @Autowired
     private JeecgRedisClient jeecgRedisClient;
+
+    @Autowired
+    private ISysFaceCutoutService faceCutoutService;
     
     /**
      * 获取租户下用户数据（支持租户隔离）
@@ -116,11 +120,14 @@ public class SysUserController {
     @PermissionData(pageComponent = "system/UserList")
 	@RequestMapping(value = "/list", method = RequestMethod.GET)
 	public Result<IPage<SysUser>> queryPageList(SysUser user,@RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
-									  @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,HttpServletRequest req) {
+								  @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,HttpServletRequest req) {
 		QueryWrapper<SysUser> queryWrapper = QueryGenerator.initQueryWrapper(user, req.getParameterMap());
         //------------------------------------------------------------------------------------------------
         //是否开启系统管理模块的多租户数据隔离【SAAS多租户模式】
-        if (MybatisPlusSaasConfig.OPEN_SYSTEM_TENANT_CONTROL) {
+        // 当查询条件为业务用户(userType=2)时，跳过租户隔离逻辑，走独立查询路径
+        String userTypeParam = req.getParameter("userType");
+        boolean isBizUser = "2".equals(userTypeParam);
+        if (MybatisPlusSaasConfig.OPEN_SYSTEM_TENANT_CONTROL && !isBizUser) {
             String tenantId = oConvertUtils.getString(TenantContext.getTenant(), "-1");
             List<String> userIds = userTenantService.getUserIdsByTenantId(Integer.valueOf(tenantId));
             if (oConvertUtils.listIsNotEmpty(userIds)) {
@@ -159,15 +166,34 @@ public class SysUserController {
 		try {
 			SysUser user = JSON.parseObject(jsonObject.toJSONString(), SysUser.class);
 			user.setCreateTime(new Date());//设置创建时间
-			String salt = oConvertUtils.randomGen(8);
-			user.setSalt(salt);
-			String passwordEncode = PasswordUtil.encrypt(user.getUsername(), user.getPassword(), salt);
-			user.setPassword(passwordEncode);
+			// 兼容空密码：仅当前端传入了非空密码时才加密保存
+			String rawPwd = user.getPassword();
+			if (StringUtils.isNotBlank(rawPwd)) {
+				String salt = oConvertUtils.randomGen(8);
+				user.setSalt(salt);
+				String passwordEncode = PasswordUtil.encrypt(user.getUsername(), rawPwd, salt);
+				user.setPassword(passwordEncode);
+			} else {
+				// 不设置密码和盐，允许保存为 null，避免 NPE
+				user.setPassword(null);
+				user.setSalt(null);
+			}
 			user.setStatus(1);
 			user.setDelFlag(CommonConstant.DEL_FLAG_0);
 			//用户表字段org_code不能在这里设置他的值
             user.setOrgCode(null);
-			// 保存用户走一个service 保证事务
+            // 人脸抠图生成（avatar 存在时）
+            try {
+                if (oConvertUtils.isNotEmpty(user.getAvatar())) {
+                    String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(user.getAvatar());
+                    if (oConvertUtils.isNotEmpty(dbPath)) {
+                        user.setFaceCutout(dbPath);
+                    }
+                }
+            } catch (Throwable e2) {
+                log.warn("用户添加-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+            }
+            // 保存用户走一个service 保证事务
             //获取租户ids
             String relTenantIds = jsonObject.getString("relTenantIds");
             sysUserService.saveUser(user, selectedRoles, selectedDeparts, relTenantIds);
@@ -202,12 +228,26 @@ public class SysUserController {
                 }
                 //用户表字段org_code不能在这里设置他的值
                 user.setOrgCode(null);
+                // 如果头像变更，生成新的抠图
+                try {
+                    String newAvatar = user.getAvatar();
+                    String oldAvatar = sysUser.getAvatar();
+                    boolean avatarChanged = oConvertUtils.isNotEmpty(newAvatar) && !org.apache.commons.lang.StringUtils.equals(newAvatar, oldAvatar);
+                    if (avatarChanged) {
+                        String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(newAvatar);
+                        if (oConvertUtils.isNotEmpty(dbPath)) {
+                            user.setFaceCutout(dbPath);
+                        }
+                    }
+                } catch (Throwable e2) {
+                    log.warn("用户编辑-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+                }
                 // 修改用户走一个service 保证事务
                 //获取租户ids
                 String relTenantIds = jsonObject.getString("relTenantIds");
                 String updateFromPage = jsonObject.getString("updateFromPage");
-				sysUserService.editUser(user, roles, departs, relTenantIds, updateFromPage);
-				result.success("修改成功!");
+                sysUserService.editUser(user, roles, departs, relTenantIds, updateFromPage);
+                result.success("修改成功!");
 			}
 		} catch (Exception e) {
 			log.error(e.getMessage(), e);
@@ -1363,6 +1403,14 @@ public class SysUserController {
                 }
                 if(StringUtils.isNotBlank(avatar)){
                     sysUser.setAvatar(avatar);
+                    try {
+                        String dbPath = faceCutoutService.generateFaceCutoutFromAvatar(avatar);
+                        if (oConvertUtils.isNotEmpty(dbPath)) {
+                            sysUser.setFaceCutout(dbPath);
+                        }
+                    } catch (Throwable e2) {
+                        log.warn("移动端编辑-人脸抠图失败，忽略并继续: {}", e2.getMessage());
+                    }
                 }
                 if(StringUtils.isNotBlank(sex)){
                     sysUser.setSex(Integer.parseInt(sex));

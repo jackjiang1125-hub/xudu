@@ -16824,7 +16824,8 @@ CREATE TABLE "public"."sys_user" (
   "depart_ids" varchar(1000) COLLATE "pg_catalog"."default",
   "client_id" varchar(64) COLLATE "pg_catalog"."default",
   "login_tenant_id" int4,
-  "bpm_status" varchar(2) COLLATE "pg_catalog"."default"
+  "bpm_status" varchar(2) COLLATE "pg_catalog"."default",
+  "user_type" int2 DEFAULT 1
 )
 ;
 COMMENT ON COLUMN "public"."sys_user"."id" IS '主键id';
@@ -16833,6 +16834,7 @@ COMMENT ON COLUMN "public"."sys_user"."realname" IS '真实姓名';
 COMMENT ON COLUMN "public"."sys_user"."password" IS '密码';
 COMMENT ON COLUMN "public"."sys_user"."salt" IS 'md5密码盐';
 COMMENT ON COLUMN "public"."sys_user"."avatar" IS '头像';
+COMMENT ON COLUMN "public"."sys_user"."user_type" IS '用户类型(1系统用户,2业务用户)';
 COMMENT ON COLUMN "public"."sys_user"."birthday" IS '生日';
 COMMENT ON COLUMN "public"."sys_user"."sex" IS '性别(0-默认未知,1-男,2-女)';
 COMMENT ON COLUMN "public"."sys_user"."email" IS '电子邮件';
@@ -16859,10 +16861,10 @@ COMMENT ON TABLE "public"."sys_user" IS '用户表';
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------
-INSERT INTO "public"."sys_user" VALUES ('1714471285016895490', 'ceshi', '测试用户', 'a9932bb12d2cbc5a', 'AF4vhXUz', NULL, '2024-04-11', NULL, 'winter@jeecg.org', '15201111112', NULL, 1, 0, NULL, NULL, 1, '123', NULL, 'admin', '2023-10-18 10:39:42', 'ceshi', '2025-05-08 16:11:05', 1, '', NULL, 0, NULL);
-INSERT INTO "public"."sys_user" VALUES ('a75d45a015c44384a04449ee80dc3503', 'jeecg', 'jeecg', 'eee378a1258530cb', 'mIgiYJow', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', NULL, 1, '418799587@qq.com', '18611788525', 'A02A01', 1, 0, NULL, NULL, 1, '00002', NULL, 'admin', '2019-02-13 16:02:36', 'admin', '2023-10-18 13:51:36', 1, '', NULL, 1001, NULL);
-INSERT INTO "public"."sys_user" VALUES ('e9ca23d68d884d4ebb19d07889727dae', 'admin', '管理员', 'cb362cfeefbf3d8d', 'RCGTeGiH', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', '1986-02-01', 1, 'jeecg@163.com', '18611111111', 'A01', 1, 0, NULL, NULL, 1, '00001', NULL, NULL, '2019-06-21 17:54:10', 'admin', '2025-07-30 15:22:42', 2, '', NULL, 0, NULL);
-INSERT INTO "public"."sys_user" VALUES ('3d464b4ea0d2491aab8a7bde74c57e95', 'zhangsan', '张三', '02ea098224c7d0d2077c14b9a3a1ed16', 'x5xRdeKB', 'https://static.jeecg.com/temp/jmlogo_1606575041993.png', '2024-04-11', NULL, '111@1.com', '13426411111', '财务部', 1, 0, NULL, NULL, 1, '0005', NULL, 'admin', '2020-05-14 21:26:24', 'admin', '2025-08-03 12:38:09.047', 1, '', NULL, NULL, NULL);
+INSERT INTO "public"."sys_user" VALUES ('1714471285016895490', 'ceshi', '测试用户', 'a9932bb12d2cbc5a', 'AF4vhXUz', NULL, '2024-04-11', NULL, 'winter@jeecg.org', '15201111112', NULL, 1, 0, NULL, NULL, 1, '123', NULL, 'admin', '2023-10-18 10:39:42', 'ceshi', '2025-05-08 16:11:05', 1, '', NULL, 0, NULL, 1);
+INSERT INTO "public"."sys_user" VALUES ('a75d45a015c44384a04449ee80dc3503', 'jeecg', 'jeecg', 'eee378a1258530cb', 'mIgiYJow', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', NULL, 1, '418799587@qq.com', '18611788525', 'A02A01', 1, 0, NULL, NULL, 1, '00002', NULL, 'admin', '2019-02-13 16:02:36', 'admin', '2023-10-18 13:51:36', 1, '', NULL, 1001, NULL, 1);
+INSERT INTO "public"."sys_user" VALUES ('e9ca23d68d884d4ebb19d07889727dae', 'admin', '管理员', 'cb362cfeefbf3d8d', 'RCGTeGiH', 'https://static.jeecg.com/temp/国炬软件logo_1606575029126.png', '1986-02-01', 1, 'jeecg@163.com', '18611111111', 'A01', 1, 0, NULL, NULL, 1, '00001', NULL, NULL, '2019-06-21 17:54:10', 'admin', '2025-07-30 15:22:42', 2, '', NULL, 0, NULL, 1);
+INSERT INTO "public"."sys_user" VALUES ('3d464b4ea0d2491aab8a7bde74c57e95', 'zhangsan', '张三', '02ea098224c7d0d2077c14b9a3a1ed16', 'x5xRdeKB', 'https://static.jeecg.com/temp/jmlogo_1606575041993.png', '2024-04-11', NULL, '111@1.com', '13426411111', '财务部', 1, 0, NULL, NULL, 1, '0005', NULL, 'admin', '2020-05-14 21:26:24', 'admin', '2025-08-03 12:38:09.047', 1, '', NULL, NULL, NULL, 1);
 
 -- ----------------------------
 -- Table structure for sys_user_agent

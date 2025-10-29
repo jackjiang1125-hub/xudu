@@ -8574,6 +8574,7 @@ CREATE TABLE `sys_user`  (
   `salt` varchar(45) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT 'md5密码盐',
   `avatar` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '头像',
   `face_cutout` varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '人脸抠图',
+  `user_type` tinyint(1) NULL DEFAULT 1 COMMENT '用户类型(1系统用户,2业务用户)',
   `birthday` date NULL DEFAULT NULL COMMENT '生日',
   `sex` tinyint(1) NULL DEFAULT NULL COMMENT '性别(0-默认未知,1-男,2-女)',
   `email` varchar(45) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '电子邮件',

@@ -77,6 +77,13 @@ public class SysUser implements Serializable {
     private String faceCutout;
 
     /**
+     * 用户类型(1系统用户,2业务用户)
+     */
+    @Excel(name = "用户类型", width = 15, dicCode = "user_type")
+    @Dict(dicCode = "user_type")
+    private Integer userType;
+
+    /**
      * 生日
      */
     @Excel(name = "生日", width = 15, format = "yyyy-MM-dd")
