@@ -258,7 +258,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                     continue;
                 }
 
-                String commandCode = body.get("ID");
+                // 兼容大小写与不同设备的键名变体
+                String commandCode = firstValue(body, "ID");
                 if (StringUtils.isBlank(commandCode)) {
                     log.warn("No command ID found in command report line: {}", commandLine);
                     continue;
@@ -268,8 +269,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 IotDeviceCommandReport report = new IotDeviceCommandReport();
                 report.setSn(deviceSn);
                 report.setCommandId(commandCode);
-                report.setCommandContent(body.get("CMD"));
-                report.setResultCode(body.get("Return"));
+                report.setCommandContent(firstValue(body, "CMD"));
+                report.setResultCode(firstValue(body, "Return", "RET", "Result"));
                 //report.setResultMessage(firstValue(body, "Info", "Message", "msg"));
                 report.setReportTime(reportTime);
                 report.setRawPayload(commandLine);

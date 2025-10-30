@@ -56,7 +56,7 @@ public class OptionsCommandDispatcher {
         if (commands == null || commands.isEmpty()) {
             return List.of();
         }
-        int startCmdId = (int) commandSeqService.nextSeq(sn);
+        int startCmdId = (int) commandSeqService.nextSeqRange(sn, commands.size());
         int id = startCmdId;
         List<String> lines = new ArrayList<>();
         for (OptionsCommandFactory.OptionsCommand c : commands) {

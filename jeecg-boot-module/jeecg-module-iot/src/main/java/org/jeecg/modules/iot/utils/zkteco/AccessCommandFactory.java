@@ -183,7 +183,6 @@ public class AccessCommandFactory {
         put(kv, "Content", p.content);
         put(kv, "Format", p.format);
         put(kv, "Url", p.url);
-        put(kv,"Size", p.size);
       //  put(kv, "PostBackTmpFlag", p.postBackTmpFlag);
         return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "biophoto" + SP + String.join(HT, kv);
     }

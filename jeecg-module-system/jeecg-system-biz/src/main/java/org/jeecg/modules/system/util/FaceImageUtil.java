@@ -127,6 +127,85 @@ public final class FaceImageUtil {
     }
 
     /**
+     * 压缩头像并保存到正式目录，返回DB相对路径
+     * @param avatar 原始头像字符串（data:image/…，http/https URL，或本地路径）
+     * @param uploadRoot 上传根路径（如 jeecg.path.upload）
+     * @param username 用户名（用于构建文件名）
+     * @param maxInputBytes 输入图片最大字节（防护，建议 5MB）
+     * @param minKB 压缩目标下限（KB）
+     * @param maxKB 压缩目标上限（KB）
+     * @return DB相对路径，失败返回 null
+     */
+    public static String compressAndSaveAvatar(String avatar, String uploadRoot, String username, long maxInputBytes, int minKB, int maxKB) {
+        try {
+            log.info("[FaceImageUtil] compressAndSaveAvatar start, user={}, target=[{}KB,{}KB]", username, minKB, maxKB);
+            if (avatar == null || avatar.isBlank()) return null;
+
+            byte[] raw;
+            String ext = "jpg"; // 输出统一为 jpg 以获得较好压缩比
+
+            if (avatar.startsWith("data:image")) {
+                int idx = avatar.indexOf(',');
+                if (idx < 0) return null;
+                String base64 = avatar.substring(idx + 1);
+                raw = Base64.getDecoder().decode(base64);
+                if (raw.length > maxInputBytes) return null;
+                log.info("[FaceImageUtil] input type=dataURI, size={}KB", (int)Math.ceil(raw.length / 1024.0));
+            } else if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                long total = 0;
+                try (InputStream is = new URL(avatar).openStream()) {
+                    int read;
+                    while ((read = is.read(buf)) != -1) {
+                        total += read;
+                        if (total > maxInputBytes) return null;
+                        baos.write(buf, 0, read);
+                    }
+                }
+                raw = baos.toByteArray();
+                log.info("[FaceImageUtil] input type=url, size={}KB, url={}", (int)Math.ceil(raw.length / 1024.0), avatar);
+            } else {
+                Path p = Paths.get(avatar);
+                Path local = p.isAbsolute() ? p : Paths.get(uploadRoot, avatar);
+                if (!Files.exists(local) || !Files.isRegularFile(local)) return null;
+                long size = Files.size(local);
+                if (size > maxInputBytes) return null;
+                raw = Files.readAllBytes(local);
+                log.info("[FaceImageUtil] input type=file, size={}KB, path={}", (int)Math.ceil(raw.length / 1024.0), local.toString());
+            }
+
+            // 压缩图片
+            byte[] compressed = compressToRange(raw, minKB, maxKB);
+            
+            // 构建保存路径（正式目录）
+            String ym = new SimpleDateFormat("yyyyMM").format(new Date());
+            String rid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+            String safeUser = (username == null || username.isBlank()) ? "user" : username.replaceAll("[^a-zA-Z0-9_-]", "_");
+            String fileName = safeUser + "_avatar_" + rid + "." + ext;
+            String relative = Paths.get("user", "avatar", ym, fileName).toString().replace('\\', '/');
+            String physical = Paths.get(uploadRoot, relative).toString();
+            
+            // 确保目录存在
+            Path parent = Paths.get(physical).getParent();
+            if (parent != null) Files.createDirectories(parent);
+            
+            // 保存压缩后的图片
+            Files.write(Paths.get(physical), compressed);
+            
+            log.info("[FaceImageUtil] avatar compressed and saved: {}KB -> {}KB, dbPath={}", 
+                    (int)Math.ceil(raw.length / 1024.0), 
+                    (int)Math.ceil(compressed.length / 1024.0), 
+                    relative);
+            
+            return relative;
+        } catch (Throwable e) {
+            log.warn("[FaceImageUtil] compressAndSaveAvatar error: {}", e.toString());
+            return null;
+        }
+    }
+
+    /**
      * 将图片压缩到目标范围（KB）内，统一输出为 JPEG 格式
      * 新策略：对质量做二分搜索，必要时逐步缩放，优先保证不超过 maxKB
      */

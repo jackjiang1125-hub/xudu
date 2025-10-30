@@ -48,6 +48,30 @@ public class RedisDbCommandSeqService implements CommandSeqService {
     }
 
     @Override
+    public long nextSeqRange(String sn, int count) {
+        if (StringUtils.isBlank(sn)) throw new IllegalArgumentException("sn cannot be blank");
+        if (count <= 0) throw new IllegalArgumentException("count must be positive");
+        final String key = SEQ_KEY_PREFIX + sn;
+        try {
+            String cur = redis.opsForValue().get(key);
+            if (cur == null) {
+                // Initialize from DB if needed (first time or after FLUSHALL)
+                initializeFromDbIfNeeded(sn, key, false);
+            }
+            // Reserve range atomically via INCRBY
+            Long newVal = redis.opsForValue().increment(key, count);
+            if (newVal == null) throw new IllegalStateException("Redis INCRBY returned null");
+            long start = newVal - count + 1;
+            return start;
+        } catch (DataAccessException | IllegalStateException e) {
+            // Degrade: compute start from DB max; note: not strictly atomic across nodes
+            Long max = safeMaxFromDb(sn);
+            long base = (max == null ? 0L : max);
+            return base + 1L;
+        }
+    }
+
+    @Override
     public void rebuildFromDb(String sn) {
         if (StringUtils.isBlank(sn)) return;
         initializeFromDbIfNeeded(sn, SEQ_KEY_PREFIX + sn, true);

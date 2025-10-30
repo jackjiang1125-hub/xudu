@@ -55,6 +55,9 @@ public class IotDeviceCommandServiceImpl extends JeecgServiceImpl<IotDeviceComma
             entity.setEnqueueTime(now);
             entity.setCreateBy(operator);
             entity.setCreateTime(nowDate);
+            if (entity.getCommandCode() == null) {
+                log.warn("Enqueue command without code: sn={}, sample={}", sn, StringUtils.abbreviate(entity.getCommandContent(), 120));
+            }
             entities.add(entity);
         }
         if (entities.isEmpty()) {
@@ -63,6 +66,7 @@ public class IotDeviceCommandServiceImpl extends JeecgServiceImpl<IotDeviceComma
         saveBatch(entities);
         for (IotDeviceCommand command : entities) {
             redisCache.enqueueCommand(sn, command.getId(), command.getCommandContent());
+            log.debug("Pushed to redis queue: sn={}, dbId={}, code={}, len={}", sn, command.getId(), command.getCommandCode(), command.getCommandContent() == null ? 0 : command.getCommandContent().length());
         }
         return entities;
     }
@@ -86,6 +90,7 @@ public class IotDeviceCommandServiceImpl extends JeecgServiceImpl<IotDeviceComma
             command.setUpdateTime(now);
         });
         updateBatchById(records);
+        log.info("Marked commands sent: count={}, time={}, ids={}", records.size(), sentTime, commandIds);
     }
 
     @Override
@@ -93,7 +98,7 @@ public class IotDeviceCommandServiceImpl extends JeecgServiceImpl<IotDeviceComma
     public Optional<IotDeviceCommand> handleCommandReport(String sn, String commandCode, String resultCode,
                                                           String resultMessage, String rawPayload, String clientIp) {
 
-        log.info("sn,{},commandcode{},resultcode{},resultmessage{},rawpayload{},clientIp:{}",sn,commandCode,resultCode,resultMessage,rawPayload,clientIp);
+        log.info("Command ack report: sn={}, code={}, resultCode={}, clientIp={}", sn, commandCode, resultCode, clientIp);
         if (StringUtils.isAnyBlank(sn, commandCode)) {
             return Optional.empty();
         }
@@ -103,12 +108,18 @@ public class IotDeviceCommandServiceImpl extends JeecgServiceImpl<IotDeviceComma
                 .orderByDesc(IotDeviceCommand::getCreateTime)
                 .last("limit 1"), false);
         if (record == null) {
-            //log.warn("Received command report for unknown command. sn={}, cmdId={}", sn, commandCode);
+            log.warn("Unknown command for ack: sn={}, code={}, resultCode={}", sn, commandCode, resultCode);
             return Optional.empty();
         }
         LocalDateTime now = LocalDateTime.now();
         Date nowDate = new Date();
+        IotDeviceCommandStatus prevStatus = record.getStatus();
+        boolean prevSentWasNull = (record.getSentTime() == null);
         record.setAckTime(now);
+        // 补记 sent_time：ACK 到达但此前未标记为 SENT 的场景
+        if (prevSentWasNull) {
+            record.setSentTime(now);
+        }
         record.setResultCode(resultCode);
 //        record.setResultMessage(resultMessage);
         record.setLastReportPayload(StringUtils.defaultIfBlank(rawPayload, record.getLastReportPayload()));

@@ -124,12 +124,22 @@ public class SysUserController {
      * 返回可读取的本地文件路径；解析失败返回 null
      */
     private String resolveAvatarToLocalPath(String avatar) {
-        // 委托工具：解析并压缩到 30-70KB，本地临时 jpg 文件
-        String path = FaceImageUtil.resolveAvatarToCompressedTempPath(avatar, upLoadPath, MAX_IMAGE_BYTES, 30, 70);
-        if (path == null) {
-            log.warn("解析/压缩头像失败，avatar={}", avatar);
+        // 解析头像到本地物理路径（不再进行压缩）
+        try {
+            if (avatar == null || avatar.isBlank()) {
+                return null;
+            }
+            Path p = Paths.get(avatar);
+            Path local = p.isAbsolute() ? p : Paths.get(upLoadPath, avatar);
+            if (Files.exists(local) && Files.isRegularFile(local)) {
+                return local.toString();
+            }
+            log.warn("解析头像失败，本地文件不存在: avatar={}, resolved={}", avatar, local.toString());
+            return null;
+        } catch (Exception e) {
+            log.warn("解析头像异常，忽略并继续: {}", e.getMessage());
+            return null;
         }
-        return path;
     }
 
     /**
@@ -225,29 +235,38 @@ public class SysUserController {
 			user.setDelFlag(CommonConstant.DEL_FLAG_0);
 			//用户表字段org_code不能在这里设置他的值
             user.setOrgCode(null);
-            // 人脸抠图生成（avatar 存在时）：调用 xudu-module-facecrop 专用方法
+            // 头像压缩处理（avatar 存在时）：压缩原图并保存到正式目录
             try {
                 if (oConvertUtils.isNotEmpty(user.getAvatar())) {
-                    String srcPath = resolveAvatarToLocalPath(user.getAvatar());
-                    if (srcPath != null) {
-                        TargetPath tp = buildFacecropTargetPath(user.getUsername());
-                        FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
-                        if (resp != null && resp.isSuccess()) {
-                            user.setFaceCutout(tp.dbPath);
-                            log.info("用户添加-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
-                        } else {
-                            log.warn("用户添加-人脸抠图失败: username={}, status={}, code={}, msg={}",
-                                    user.getUsername(),
-                                    (resp==null?null:resp.getStatus()),
-                                    (resp==null?null:resp.getCode()),
-                                    (resp==null?null:resp.getMessage()));
+                    // 压缩并保存头像到正式目录，更新avatar字段为压缩后的相对路径
+                    String compressedAvatarPath = FaceImageUtil.compressAndSaveAvatar(
+                            user.getAvatar(), upLoadPath, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
+                    if (compressedAvatarPath != null) {
+                        user.setAvatar(compressedAvatarPath);
+                        log.info("用户添加-头像压缩保存成功: username={}, dbPath={}", user.getUsername(), compressedAvatarPath);
+                        
+                        // 使用压缩后的头像进行人脸抠图
+                        String srcPath = resolveAvatarToLocalPath(compressedAvatarPath);
+                        if (srcPath != null) {
+                            TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                            FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                            if (resp != null && resp.isSuccess()) {
+                                user.setFaceCutout(tp.dbPath);
+                                log.info("用户添加-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
+                            } else {
+                                log.warn("用户添加-人脸抠图失败: username={}, status={}, code={}, msg={}",
+                                        user.getUsername(),
+                                        (resp==null?null:resp.getStatus()),
+                                        (resp==null?null:resp.getCode()),
+                                        (resp==null?null:resp.getMessage()));
+                            }
                         }
                     } else {
-                        log.warn("用户添加-头像路径无法解析，跳过抠图: username={}, avatar={}", user.getUsername(), user.getAvatar());
+                        log.warn("用户添加-头像压缩失败，跳过处理: username={}, avatar={}", user.getUsername(), user.getAvatar());
                     }
                 }
             } catch (Throwable e2) {
-                log.warn("用户添加-人脸抠图异常，忽略并继续: {}", e2.getMessage());
+                log.warn("用户添加-头像处理异常，忽略并继续: {}", e2.getMessage());
             }
             // 保存用户走一个service 保证事务
             //获取租户ids
@@ -284,32 +303,41 @@ public class SysUserController {
                 }
                 //用户表字段org_code不能在这里设置他的值
                 user.setOrgCode(null);
-                // 如果头像变更，生成新的抠图（调用 xudu facecrop）
+                // 如果头像变更，压缩保存并生成新的抠图（调用 xudu facecrop）
                 try {
                     String newAvatar = user.getAvatar();
                     String oldAvatar = sysUser.getAvatar();
                     boolean avatarChanged = oConvertUtils.isNotEmpty(newAvatar) && !org.apache.commons.lang.StringUtils.equals(newAvatar, oldAvatar);
                     if (avatarChanged) {
-                        String srcPath = resolveAvatarToLocalPath(newAvatar);
-                        if (srcPath != null) {
-                            TargetPath tp = buildFacecropTargetPath(user.getUsername());
-                            FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
-                            if (resp != null && resp.isSuccess()) {
-                                user.setFaceCutout(tp.dbPath);
-                                log.info("用户编辑-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
-                            } else {
-                                log.warn("用户编辑-人脸抠图失败: username={}, status={}, code={}, msg={}",
-                                        user.getUsername(),
-                                        (resp==null?null:resp.getStatus()),
-                                        (resp==null?null:resp.getCode()),
-                                        (resp==null?null:resp.getMessage()));
+                        // 压缩并保存头像到正式目录，更新avatar字段为压缩后的相对路径
+                        String compressedAvatarPath = FaceImageUtil.compressAndSaveAvatar(
+                                newAvatar, upLoadPath, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
+                        if (compressedAvatarPath != null) {
+                            user.setAvatar(compressedAvatarPath);
+                            log.info("用户编辑-头像压缩保存成功: username={}, dbPath={}", user.getUsername(), compressedAvatarPath);
+                            
+                            // 使用压缩后的头像进行人脸抠图
+                            String srcPath = resolveAvatarToLocalPath(compressedAvatarPath);
+                            if (srcPath != null) {
+                                TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                                FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                                if (resp != null && resp.isSuccess()) {
+                                    user.setFaceCutout(tp.dbPath);
+                                    log.info("用户编辑-人脸抠图成功: username={}, dbPath={}, durationMs={}", user.getUsername(), tp.dbPath, resp.getDurationMs());
+                                } else {
+                                    log.warn("用户编辑-人脸抠图失败: username={}, status={}, code={}, msg={}",
+                                            user.getUsername(),
+                                            (resp==null?null:resp.getStatus()),
+                                            (resp==null?null:resp.getCode()),
+                                            (resp==null?null:resp.getMessage()));
+                                }
                             }
                         } else {
-                            log.warn("用户编辑-头像路径无法解析，跳过抠图: username={}, avatar={}", user.getUsername(), newAvatar);
+                            log.warn("用户编辑-头像压缩失败，跳过处理: username={}, avatar={}", user.getUsername(), newAvatar);
                         }
                     }
                 } catch (Throwable e2) {
-                    log.warn("用户编辑-人脸抠图异常，忽略并继续: {}", e2.getMessage());
+                    log.warn("用户编辑-头像处理异常，忽略并继续: {}", e2.getMessage());
                 }
                 // 修改用户走一个service 保证事务
                 //获取租户ids

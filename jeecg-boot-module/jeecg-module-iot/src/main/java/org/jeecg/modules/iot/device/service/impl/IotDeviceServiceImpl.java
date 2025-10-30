@@ -464,7 +464,7 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         if (StringUtils.isAnyBlank(sn, pin)) {
             return;
         }
-        int startCmdId = (int) commandSeqService.nextSeq(sn);
+        int startCmdId = (int) commandSeqService.nextSeqRange(sn, 4);
 
         // 用户信息（按协议字段）
         AccessCommandFactory.CmdUser user = new AccessCommandFactory.CmdUser(pin);
@@ -576,7 +576,7 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         if (StringUtils.isAnyBlank(sn, pin)) {
             return;
         }
-        int id = (int) commandSeqService.nextSeq(sn);
+        int id = (int) commandSeqService.nextSeqRange(sn, 4);
         List<String> cmds = new java.util.ArrayList<>();
         // 人员删除按 4 条命令：userauthorize、biophoto、userpic、user
         cmds.add(AccessCommandFactory.buildDeleteUserAuthorize(id++, pin));
