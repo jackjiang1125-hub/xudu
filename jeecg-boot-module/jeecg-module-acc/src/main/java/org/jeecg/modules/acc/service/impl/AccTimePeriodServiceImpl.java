@@ -155,18 +155,41 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteWithDetails(String id) {
         if (id == null || id.isBlank()) return false;
+        // 先获取排序序号（TimeZoneId）以便删除下发
+        AccTimePeriod entity = this.getById(id);
+        Integer order = (entity == null) ? null : entity.getSortOrder();
+
+        // 删除详情与主记录
         detailMapper.delete(new LambdaQueryWrapper<AccTimePeriodDetail>().eq(AccTimePeriodDetail::getPeriodId, id));
-        return this.removeById(id);
+        boolean removed = this.removeById(id);
+
+        // 异步下发删除命令到所有设备
+        if (removed && order != null) {
+            deleteTimezoneFromAllDevices(order);
+        }
+        return removed;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteBatchWithDetails(String[] ids) {
         if (ids == null || ids.length == 0) return false;
+        List<Integer> orders = new ArrayList<>();
         for (String id : ids) {
+            // 收集待删除的 TimeZoneId
+            AccTimePeriod entity = this.getById(id);
+            if (entity != null && entity.getSortOrder() != null) {
+                orders.add(entity.getSortOrder());
+            }
             detailMapper.delete(new LambdaQueryWrapper<AccTimePeriodDetail>().eq(AccTimePeriodDetail::getPeriodId, id));
         }
-        return this.removeByIds(List.of(ids));
+        boolean removed = this.removeByIds(List.of(ids));
+        if (removed) {
+            for (Integer order : orders) {
+                deleteTimezoneFromAllDevices(order);
+            }
+        }
+        return removed;
     }
 
     private void saveDetails(String periodId, List<TimePeriodDetailVO> detailVOs) {
@@ -274,7 +297,7 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         }
 
         LinkedHashMap<String, Object> tzBasic = new LinkedHashMap<>();
-        tzBasic.put("TimeZoneId", order);
+        tzBasic.put("TimezoneId", order);
 
         // 映射每周与节假日键
         fillDay(tzBasic, "Sun", byKey.get("sun"));
@@ -336,6 +359,23 @@ public class AccTimePeriodServiceImpl extends JeecgServiceImpl<AccTimePeriodMapp
         for (AccDevice device : devices) {
             if (device != null && device.getSn() != null && !device.getSn().isBlank()) {
                 pushTimezoneByOrder(device.getSn(), order);
+            }
+        }
+    }
+
+    // 异步：删除指定序号的时间段（TimeZoneId）并下发到所有设备
+    @Async
+    public void deleteTimezoneFromAllDevices(int order) {
+        List<AccDevice> devices = accDeviceMapper.selectList(new LambdaQueryWrapper<AccDevice>());
+        for (AccDevice device : devices) {
+            String sn = (device == null) ? null : device.getSn();
+            if (sn != null && !sn.isBlank()) {
+                try {
+                    iotDeviceService.deleteTimezoneById(sn, order);
+                    log.info("已下发时间段删除：sn={}, order={}", sn, order);
+                } catch (Exception e) {
+                    log.warn("时间段删除下发失败：sn={}, order={}, err={}", sn, order, e.getMessage());
+                }
             }
         }
     }

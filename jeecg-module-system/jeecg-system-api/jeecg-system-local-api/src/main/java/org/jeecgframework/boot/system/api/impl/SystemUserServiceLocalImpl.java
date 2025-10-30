@@ -40,7 +40,10 @@ public class SystemUserServiceLocalImpl implements SystemUserService {
                     .setUsername(jo.getString("username"))
                     .setRealname(jo.getString("realname"))
                     .setPhone(jo.getString("phone"))
-                    .setOrgCode(jo.getString("orgCode"));
+                    .setOrgCode(jo.getString("orgCode"))
+                    .setWorkNo(jo.getString("workNo"))
+                    .setAvatar(jo.getString("avatar"))
+                    .setFaceCutout(jo.getString("faceCutout"));
             result.add(vo);
         }
         return result;
@@ -64,7 +67,10 @@ public class SystemUserServiceLocalImpl implements SystemUserService {
                     .setUsername(jo.getString("username"))
                     .setRealname(jo.getString("realname"))
                     .setPhone(jo.getString("phone"))
-                    .setOrgCode(jo.getString("orgCode"));
+                    .setOrgCode(jo.getString("orgCode"))
+                    .setWorkNo(jo.getString("workNo"))
+                    .setAvatar(jo.getString("avatar"))
+                    .setFaceCutout(jo.getString("faceCutout"));
             result.add(vo);
         }
         return result;

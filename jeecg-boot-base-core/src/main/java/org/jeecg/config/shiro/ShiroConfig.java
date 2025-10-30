@@ -252,6 +252,8 @@ public class ShiroConfig {
         securityManager.setSubjectDAO(subjectDAO);
         //自定义缓存实现,使用redis
         securityManager.setCacheManager(redisCacheManager());
+        // 项目采用 JWT 无状态认证，禁用 Shiro 的 RememberMe 以避免旧 cookie 解密警告
+        securityManager.setRememberMeManager(null);
         return securityManager;
     }
 

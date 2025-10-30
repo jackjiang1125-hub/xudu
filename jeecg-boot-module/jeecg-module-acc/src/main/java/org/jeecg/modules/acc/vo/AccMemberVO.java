@@ -14,6 +14,7 @@ public class AccMemberVO {
     private String position;
     private String status;
     private String remark;
+    private String workNo;
     // ===== 前端展示补充字段（与 accgroup.data.ts 对齐）=====
     private String name;   // 显示姓名（与 memberName 同步）
     private String dept;   // 显示部门（与 department 同步）

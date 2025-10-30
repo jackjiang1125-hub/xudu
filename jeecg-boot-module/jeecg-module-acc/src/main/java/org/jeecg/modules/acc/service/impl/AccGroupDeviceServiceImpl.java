@@ -5,11 +5,15 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.jeecg.modules.acc.entity.AccDevice;
+import org.jeecg.modules.acc.entity.AccGroupMember;
 import org.jeecg.modules.acc.entity.AccGroupDevice;
 import org.jeecg.modules.acc.mapper.AccDeviceMapper;
 import org.jeecg.modules.acc.mapper.AccGroupDeviceMapper;
+import org.jeecg.modules.acc.mapper.AccGroupMemberMapper;
+import org.jeecg.modules.acc.service.iot.AccIoTDispatchService;
 import org.jeecg.modules.acc.service.IAccGroupDeviceService;
 import org.jeecg.modules.acc.vo.AccDeviceVO;
+import org.jeecgframework.boot.system.vo.UserLiteVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +27,12 @@ public class AccGroupDeviceServiceImpl extends ServiceImpl<AccGroupDeviceMapper,
 
     @Autowired
     private AccDeviceMapper accDeviceMapper;
+
+    @Autowired
+    private AccGroupMemberMapper accGroupMemberMapper;
+
+    @Autowired
+    private AccIoTDispatchService accIoTDispatchService;
 
     @Override
     public IPage<AccDeviceVO> listDevicesByGroupId(String groupId, Integer pageNo, Integer pageSize) {
@@ -101,6 +111,15 @@ public class AccGroupDeviceServiceImpl extends ServiceImpl<AccGroupDeviceMapper,
 
         if (!toSave.isEmpty()) {
             this.saveBatch(toSave);
+            try {
+                List<String> newDeviceIds = toSave.stream().map(AccGroupDevice::getDeviceId).collect(java.util.stream.Collectors.toList());
+                org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).info("[ACC] 设备新增关系完成，准备下发成员同步 groupId={}, addCount={}", groupId, newDeviceIds.size());
+                // 下发：设备新增后同步组内成员到这些设备（每成员4条新增命令）
+                accIoTDispatchService.syncGroupMembersToDevices(groupId, newDeviceIds);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).warn("[ACC] 设备新增后成员同步下发失败 groupId={}, err={} ", groupId, e.getMessage());
+                // 下发失败不影响关系保存
+            }
         }
     }
 
@@ -111,14 +130,43 @@ public class AccGroupDeviceServiceImpl extends ServiceImpl<AccGroupDeviceMapper,
         QueryWrapper<AccGroupDevice> qw = new QueryWrapper<>();
         qw.eq("group_id", groupId).in("device_id", deviceIds);
         this.remove(qw);
+        try {
+            org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).info("[ACC] 设备关系删除完成，准备下发移除成员 groupId={}, removeCount={}", groupId, deviceIds.size());
+            // 下发：从这些设备移除组内所有成员（每成员4条删除命令）
+            accIoTDispatchService.removeGroupMembersFromDevices(groupId, deviceIds);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).warn("[ACC] 设备移除成员下发失败 groupId={}, err={} ", groupId, e.getMessage());
+            // 下发失败不影响关系删除
+        }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void removeByDeviceId(String deviceId) {
         if (deviceId == null || deviceId.trim().isEmpty()) return;
+        // 查询该设备关联的组ID，便于下发删除
+        List<AccGroupDevice> relations = this.list(new QueryWrapper<AccGroupDevice>().eq("device_id", deviceId));
+        java.util.Set<String> groupIds = relations.stream().map(AccGroupDevice::getGroupId).collect(java.util.stream.Collectors.toSet());
+
+        // 先删除关系
         QueryWrapper<AccGroupDevice> qw = new QueryWrapper<>();
         qw.eq("device_id", deviceId);
         this.remove(qw);
+
+        // 下发删除（不影响关系删除）
+        try {
+            if (!groupIds.isEmpty()) {
+                org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).info("[ACC] 设备ID删除完成，准备批量下发移除成员 deviceId={}, groupCount={}", deviceId, groupIds.size());
+                // 下发：对该设备按组集合批量移除所有成员（每成员4条删除命令）
+                accIoTDispatchService.removeMembersFromDevicesForGroups(groupIds, java.util.List.of(deviceId));
+            }
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(AccGroupDeviceServiceImpl.class).warn("[ACC] 设备批量移除成员下发失败 deviceId={}, err={} ", deviceId, e.getMessage());
+            // swallow
+        }
     }
+
+    // ===================== 说明 =====================
+    // 下发逻辑统一由 AccIoTDispatchService 承担，避免成员/设备服务重复实现。
+    // 该服务负责 PIN 解析、授权时区映射、设备SN解析，并保证新增/删除均为 4 条基础命令。
 }

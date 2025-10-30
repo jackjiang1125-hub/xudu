@@ -102,9 +102,9 @@ public class AccessCommandFactory {
         public Integer format;   // 0: base64, 1: url
         public String url;       // format=1 时必填
         public String content;   // format=0 时必填（Base64）
-        public Integer size;     // Base64 长度
-        public Integer no = 0;     // 默认 0
-        public Integer index = 0;
+        public Integer size = 0;     // Base64 长度
+        public Integer no;     // 默认 0
+        public Integer index;
 
         public static CmdBioPhoto fromBase64(String pin, String base64) {
             CmdBioPhoto p = new CmdBioPhoto();
@@ -242,6 +242,16 @@ public class AccessCommandFactory {
     }
     public static String buildDeleteMulCardUser(int cmdId, String pin) {
         return buildSimpleDelete(cmdId, "mulcarduser", mapOf("Pin", pin));
+    }
+
+    /**
+     * DELETE timezone —— 删除指定的时间段（按 TimeZoneId）
+     * 生成：C:<cmdId>:DATA DELETE timezone TimeZoneId=<timezoneId>
+     */
+    public static String buildDeleteTimezoneById(int cmdId, int timezoneId) {
+        Map<String, Object> cond = new LinkedHashMap<>();
+        cond.put("TimezoneId", timezoneId);
+        return buildSimpleDelete(cmdId, "timezone", cond);
     }
 
     /**

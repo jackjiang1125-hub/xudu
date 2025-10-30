@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.acc.entity.AccGroupMember;
 import org.jeecg.modules.acc.mapper.AccGroupMemberMapper;
+import org.jeecg.modules.acc.service.iot.AccIoTDispatchService;
 import org.jeecg.modules.acc.service.IAccGroupMemberService;
 import org.jeecg.modules.acc.vo.AccMemberVO;
 import org.jeecgframework.boot.system.api.SystemUserService;
@@ -22,11 +24,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper, AccGroupMember> implements IAccGroupMemberService {
 
     @Autowired(required = false)
     private SystemUserService systemUserService;
+
+    @Autowired
+    private AccIoTDispatchService accIoTDispatchService;
 
     @Override
     public IPage<AccMemberVO> listMembersByGroupId(String groupId, Integer pageNo, Integer pageSize) {
@@ -63,6 +69,7 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
                 String realname = u == null ? "" : nullToEmpty(u.getRealname());
                 String username = u == null ? "" : nullToEmpty(u.getUsername());
                 String phone = u == null ? "" : nullToEmpty(u.getPhone());
+                String workNo = u == null ? "" : nullToEmpty(u.getWorkNo());
 
                 String deptName = "";
                 if (u != null && u.getOrgCode() != null) {
@@ -78,6 +85,7 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
                 vo.setName(realname);
                 vo.setDept(deptName);
                 vo.setPhone(phone);
+                vo.setWorkNo(workNo);
                 memberVOs.add(vo);
             }
         }
@@ -131,6 +139,15 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
 
         if (!toSave.isEmpty()) {
             this.saveBatch(toSave);
+            try {
+                List<String> newMemberIds = toSave.stream().map(AccGroupMember::getMemberId).collect(Collectors.toList());
+                log.info("[ACC] 成员新增关系完成，准备下发到设备 groupId={}, addCount={}", groupId, newMemberIds.size());
+                // 下发：新增成员到组的所有设备（每成员4条新增命令）
+                accIoTDispatchService.addMembersToGroupDevices(groupId, newMemberIds);
+            } catch (Exception e) {
+                // 不中断事务，记录日志即可（此类下发不应影响关系保存）
+                log.warn("[ACC] 成员新增下发失败 groupId={}, err={}", groupId, e.getMessage());
+            }
         }
     }
 
@@ -141,9 +158,21 @@ public class AccGroupMemberServiceImpl extends ServiceImpl<AccGroupMemberMapper,
         QueryWrapper<AccGroupMember> qw = new QueryWrapper<>();
         qw.eq("group_id", groupId).in("member_id", memberIds);
         this.remove(qw);
+        try {
+            log.info("[ACC] 成员关系删除完成，准备下发移除 groupId={}, removeCount={}", groupId, memberIds.size());
+            // 下发：从组的所有设备移除这些成员（每成员4条删除命令）
+            accIoTDispatchService.removeMembersFromGroupDevices(groupId, memberIds);
+        } catch (Exception e) {
+            // 下发失败不影响关系删除
+            log.warn("[ACC] 成员删除下发失败 groupId={}, err={}", groupId, e.getMessage());
+        }
     }
 
     private static String nullToEmpty(String s) {
         return s == null ? "" : s;
     }
+
+    // ===================== 说明 =====================
+    // 下发逻辑统一由 AccIoTDispatchService 承担，避免在成员服务中重复工具方法与外部依赖。
+    // 该服务保证新增/删除均为 4 条基础命令（user, userauthorize, biophoto, userpic）。
 }

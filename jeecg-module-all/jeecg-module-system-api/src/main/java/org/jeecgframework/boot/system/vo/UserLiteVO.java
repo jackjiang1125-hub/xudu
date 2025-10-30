@@ -16,4 +16,9 @@ public class UserLiteVO {
     private String realname;
     private String phone;
     private String orgCode;
+    private String workNo;
+    /** 头像（URL/相对路径/Base64） */
+    private String avatar;
+    /** 人脸抠图（URL/相对路径/Base64） */
+    private String faceCutout;
 }

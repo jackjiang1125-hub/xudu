@@ -116,6 +116,14 @@ public interface IotDeviceService  {
     void deleteAllTimezone(String sn);
 
     /**
+     * 删除指定时间段
+     * 对应命令：DATA DELETE timezone TimeZoneId=<id>
+     * @param sn 设备序列号
+     * @param timezoneId 时间段编号（TimeZoneId）
+     */
+    void deleteTimezoneById(String sn, int timezoneId);
+
+    /**
      * 删除全部节假日
      * 对应命令：DATA DELETE holiday *
      */
@@ -189,5 +197,51 @@ public interface IotDeviceService  {
      * @param params 键值参数，例如 TimeZoneId、StartTime、EndTime 或各种时间段参数
      */
     void updateTimezone(String sn, Map<String, ?> params);
+
+    /**
+     * 下发人员新增（含权限）命令序列；按协议下发 4 条基础命令：
+     * 1) DATA UPDATE user（人员信息）
+     * 2) DATA UPDATE userauthorize（门禁权限）
+     * 3) DATA UPDATE userpic（人员照片，默认占位 URL）
+     * 4) DATA UPDATE biophoto（比对照片，默认占位 URL）
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     * @param name 姓名
+     * @param authorizeTimezoneId 授权时区编号（通常与业务时间段的排序号一致）
+     * @param authorizeDoorId 授权门位图（1..15，15表示所有门）
+     * @param devId 设备ID（一般取1）
+     */
+    void addUserWithAuthorize(String sn, String pin, String name, Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId);
+
+    /**
+     * 下发人员新增（含权限）命令序列（增强版）。固定 4 条基础命令：
+     * 1) DATA UPDATE user（人员信息）
+     * 2) DATA UPDATE userauthorize（门禁权限）
+     * 3) DATA UPDATE userpic（人员照片，可为空）
+     * 4) DATA UPDATE biophoto（比对照片，可为空）
+     * 当图片参数为空时，以空 URL 方式占位，设备可忽略。
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     * @param name 姓名
+     * @param authorizeTimezoneId 授权时区编号（通常与业务时间段的排序号一致）
+     * @param authorizeDoorId 授权门位图（1..15，15表示所有门）
+     * @param devId 设备ID（一般取1）
+     * @param userPic 人员图片 URL 或 Base64（可为空）
+     * @param bioPhoto 抠图/比对图片 URL 或 Base64（可为空）
+     */
+    void addUserWithAuthorize(String sn, String pin, String name,
+                              Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                              String userPic, String bioPhoto);
+
+    /**
+     * 下发人员删除（含权限）命令序列；按协议下发 4 条基础命令：
+     * 1) DATA DELETE userauthorize
+     * 2) DATA DELETE biophoto
+     * 3) DATA DELETE userpic
+     * 4) DATA DELETE user
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     */
+    void removeUserAndAuthorize(String sn, String pin);
 
 }

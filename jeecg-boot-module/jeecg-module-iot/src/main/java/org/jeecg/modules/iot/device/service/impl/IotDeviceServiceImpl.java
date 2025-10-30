@@ -40,6 +40,7 @@ import java.util.List;
 import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
 import org.jeecg.modules.iot.device.seq.CommandSeqService;
 import org.jeecg.modules.iot.utils.zkteco.AccessCommandFactory;
+import java.util.Base64;
 import org.jeecg.modules.iot.utils.zkteco.OptionsCommandFactory;
 
 @Service
@@ -306,6 +307,17 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), "");
     }
 
+    // 删除指定时间段（按 TimeZoneId）
+    @Override
+    public void deleteTimezoneById(String sn, int timezoneId) {
+        if (StringUtils.isBlank(sn)) {
+            return;
+        }
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = AccessCommandFactory.buildDeleteTimezoneById(cmdId, timezoneId);
+        iotDeviceCommandService.enqueueCommands(sn, java.util.List.of(cmd), "");
+    }
+
     // 删除全部节假日
     @Override
     public void deleteAllHoliday(String sn) {
@@ -432,4 +444,146 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), "");
     }
 
+    @Override
+    public void addUserWithAuthorize(String sn, String pin, String name, Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId) {
+        // 兼容旧调用：不传用户图片与抠图
+        addUserWithAuthorize(sn, pin, name, authorizeTimezoneId, authorizeDoorId, devId, null, null);
+    }
+
+    /**
+     * 下发人员新增（含权限）命令序列；固定 4 条基础命令：user、userauthorize、userpic、biophoto。
+     * 增强版：支持传入用户图片(userPic)与抠图(bioPhoto)，可为空。
+     * - 当传入为空时，使用 URL 空串占位，确保 4 条命令始终下发；
+     * - 当传入为 data:URI 或 Base64 字符串时，识别为 Base64 下发；
+     * - 当传入为 URL（含 "://"、以 "/" 或 "file:" 开头）时，识别为 URL 下发。
+     */
+    @Override
+    public void addUserWithAuthorize(String sn, String pin, String name,
+                                     Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                                     String userPic, String bioPhoto) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int startCmdId = (int) commandSeqService.nextSeq(sn);
+
+        // 用户信息（按协议字段）
+        AccessCommandFactory.CmdUser user = new AccessCommandFactory.CmdUser(pin);
+        user.name = name;
+        user.group = "0";      // 默认门禁组
+        user.privilege = "0";  // 普通权限
+        user.disable = "0";    // 非黑名单
+        // user.verify = "0";     // 默认验证方式（跟随设备）
+        user.starttime = "0";
+        user.endtime = "0";
+        user.cardno = "";
+        user.password = "";
+
+        // 门禁授权（单条，必要时可扩展为多条）
+        Integer tzId = authorizeTimezoneId == null ? 1 : authorizeTimezoneId;
+        Integer doorId = authorizeDoorId == null ? 1 : authorizeDoorId; // 15: ALL DOORS
+        AccessCommandFactory.CmdUserAuthorize ua = new AccessCommandFactory.CmdUserAuthorize(pin, tzId, doorId);
+        ua.devId = (devId == null ? 1 : devId);
+
+        // 图片/抠图（均允许为空，保持 4 条命令序列一致）
+        AccessCommandFactory.CmdUserPic userPicCmd = buildUserPicCmd(pin, userPic);
+        AccessCommandFactory.CmdBioPhoto bioPhotoCmd = buildBioPhotoCmd(pin, bioPhoto);
+
+        List<String> cmds = AccessCommandFactory.buildAddUserBundle(startCmdId, user, java.util.List.of(ua), userPicCmd, bioPhotoCmd);
+        log.info("[IoT] 下发人员新增(4条) sn={}, pin={}, tzId={}, doorId={}, devId={}, userPicFormat={}, bioPhotoFormat={}, hasUserPic={}, hasBioPhoto={}",
+                sn, pin, tzId, doorId, ua.devId,
+                (StringUtils.isBlank(userPic) ? "placeholder" : (isDataUri(userPic) ? "base64" : (isLikelyUrl(userPic) ? "url" : (isLikelyBase64(userPic) ? "base64" : "url")))),
+                (StringUtils.isBlank(bioPhoto) ? "placeholder" : (isDataUri(bioPhoto) ? "base64" : (isLikelyUrl(bioPhoto) ? "url" : (isLikelyBase64(bioPhoto) ? "base64" : "url")))),
+                StringUtils.isNotBlank(userPic), StringUtils.isNotBlank(bioPhoto));
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    /** 根据传入字符串构造用户图片命令对象 */
+    private AccessCommandFactory.CmdUserPic buildUserPicCmd(String pin, String pic) {
+        if (StringUtils.isBlank(pic)) {
+            return AccessCommandFactory.CmdUserPic.fromUrl(pin, "");
+        }
+        String val = pic.trim();
+        if (isDataUri(val)) {
+            String base64 = extractDataUriContent(val);
+            return AccessCommandFactory.CmdUserPic.fromBase64(pin, base64);
+        }
+        if (isLikelyBase64(val)) {
+            return AccessCommandFactory.CmdUserPic.fromBase64(pin, val);
+        }
+        if (isLikelyUrl(val)) {
+            return AccessCommandFactory.CmdUserPic.fromUrl(pin, val);
+        }
+        return AccessCommandFactory.CmdUserPic.fromUrl(pin, val);
+    }
+
+    /** 根据传入字符串构造比对照片命令对象 */
+    private AccessCommandFactory.CmdBioPhoto buildBioPhotoCmd(String pin, String photo) {
+        if (StringUtils.isBlank(photo)) {
+            return AccessCommandFactory.CmdBioPhoto.fromUrl(pin, "");
+        }
+        String val = photo.trim();
+        if (isDataUri(val)) {
+            String base64 = extractDataUriContent(val);
+            return AccessCommandFactory.CmdBioPhoto.fromBase64(pin, base64);
+        }
+        if (isLikelyBase64(val)) {
+            return AccessCommandFactory.CmdBioPhoto.fromBase64(pin, val);
+        }
+        if (isLikelyUrl(val)) {
+            return AccessCommandFactory.CmdBioPhoto.fromUrl(pin, val);
+        }
+        return AccessCommandFactory.CmdBioPhoto.fromUrl(pin, val);
+    }
+
+    /** 是否为 data URI（如：data:image/jpeg;base64,xxxxx） */
+    private boolean isDataUri(String s) {
+        return s != null && s.regionMatches(true, 0, "data:", 0, 5);
+    }
+
+    /** 提取 data URI 中逗号后的 Base64 内容 */
+    private String extractDataUriContent(String dataUri) {
+        if (dataUri == null) return null;
+        int idx = dataUri.indexOf(',');
+        return idx >= 0 ? dataUri.substring(idx + 1) : dataUri;
+    }
+
+    /** 简易 URL 判定：包含 "://" 或以 "/"、"file:" 开头 */
+    private boolean isLikelyUrl(String s) {
+        if (s == null) return false;
+        String v = s.trim();
+        return v.contains("://") || v.startsWith("/") || v.regionMatches(true, 0, "file:", 0, 5);
+    }
+
+    /**
+     * 宽松的 Base64 判定：
+     * - 去除所有空白字符后仅包含 Base64 字符集 A-Z a-z 0-9 + / =
+     * - 长度至少 16 且为 4 的倍数
+     */
+    private boolean isLikelyBase64(String s) {
+        if (s == null) return false;
+        String v = s.trim();
+        if (v.isEmpty()) return false;
+        // 去掉空白
+        v = v.replaceAll("\\s+", "");
+        if (v.length() < 16 || (v.length() % 4 != 0)) return false;
+        // 只允许 Base64 字符
+        if (!v.matches("^[A-Za-z0-9+/]+={0,2}$")) return false;
+        return true;
+    }
+
+    @Override
+    public void removeUserAndAuthorize(String sn, String pin) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int id = (int) commandSeqService.nextSeq(sn);
+        List<String> cmds = new java.util.ArrayList<>();
+        // 人员删除按 4 条命令：userauthorize、biophoto、userpic、user
+        cmds.add(AccessCommandFactory.buildDeleteUserAuthorize(id++, pin));
+        cmds.add(AccessCommandFactory.buildDeleteBioPhoto(id++, pin, 9));
+        cmds.add(AccessCommandFactory.buildDeleteUserPic(id++, pin));
+        cmds.add(AccessCommandFactory.buildDeleteUser(id++, pin));
+        log.info("[IoT] 下发人员删除(4条) sn={}, pin={}", sn, pin);
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
 }
