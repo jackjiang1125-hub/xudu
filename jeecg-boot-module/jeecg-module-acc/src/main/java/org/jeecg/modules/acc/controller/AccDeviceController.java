@@ -16,7 +16,13 @@ import org.jeecgframework.boot.iot.vo.IotDeviceVO;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,6 +51,12 @@ public class AccDeviceController {
     @Autowired
     private ApplicationEventPublisher applicationEventPublisher;
 
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     /**
      * 分页查询门禁设备
      */
@@ -54,6 +66,36 @@ public class AccDeviceController {
                                                 PageRequest pageRequest,
                                                 HttpServletRequest req) {
         PageResult<AccDeviceVO> pageResult = accDeviceService.list(query,pageRequest,req.getParameterMap());
+        try {
+            List<AccDeviceVO> records = pageResult.getRecords();
+            if (records != null && !records.isEmpty()) {
+                long now = System.currentTimeMillis();
+                for (AccDeviceVO vo : records) {
+                    String sn = vo.getSn();
+                    LocalDateTime hbTime = vo.getLastHeartbeatTime();
+                    boolean online = false;
+                    if (StringUtils.isNotBlank(sn)) {
+                        String json = redisTemplate.opsForValue().get("iot:acc:heartbeat:" + sn);
+                        if (StringUtils.isNotBlank(json)) {
+                            try {
+                                JsonNode node = objectMapper.readTree(json);
+                                if (node != null && node.has("timestamp")) {
+                                    long ts = node.get("timestamp").asLong();
+                                    hbTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+                                    online = (now - ts) <= 10_000L;
+                                }
+                            } catch (Exception ignored) { }
+                        }
+                    }
+                    // 填充最后心跳时间
+                    vo.setLastHeartbeatTime(hbTime);
+                    // 填充在线状态
+                    vo.setOnline(online);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("填充在线状态失败: {}", e.getMessage());
+        }
         return Result.OK(pageResult);
     }
 

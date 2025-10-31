@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.jeecg.modules.iot.device.entity.IotDeviceRtLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -115,6 +117,65 @@ public class AccDeviceRedisCache {
 
     private String key(String category, String sn) {
         return "iot:acc:" + category + ":" + sn;
+    }
+
+
+    /**
+     * 将门禁设备实时记录（rtlog）入队到 Redis 列表，供 ACC 模块异步按序消费。
+     * 队列键：iot:acc:rtlog:queue
+     */
+    public void enqueueRtLogs(List<IotDeviceRtLog> logs) {
+        if (logs == null || logs.isEmpty()) {
+            return;
+        }
+        String redisKey = "iot:acc:rtlog:queue";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        for (IotDeviceRtLog rtlog : logs) {
+            try {
+                java.util.Map<String, Object> payload = new java.util.HashMap<>();
+                payload.put("sn", rtlog.getSn());
+                String logTimeStr = rtlog.getLogTime() != null ? rtlog.getLogTime().format(formatter) : null;
+                payload.put("logTime", logTimeStr);
+                payload.put("pin", rtlog.getPin());
+                payload.put("cardNo", rtlog.getCardNo());
+                payload.put("eventAddr", rtlog.getEventAddr());
+                payload.put("eventCode", rtlog.getEventCode());
+                payload.put("inoutStatus", rtlog.getInoutStatus());
+                payload.put("verifyType", rtlog.getVerifyType());
+                payload.put("recordIndex", rtlog.getRecordIndex());
+                payload.put("siteCode", rtlog.getSiteCode());
+                payload.put("linkId", rtlog.getLinkId());
+                payload.put("maskFlag", rtlog.getMaskFlag());
+                payload.put("temperature", rtlog.getTemperature());
+                payload.put("convTemperature", rtlog.getConvTemperature());
+                payload.put("clientIp", rtlog.getClientIp());
+                payload.put("rawPayload", rtlog.getRawPayload());
+                // mediaFile: 与设备抓拍保存命名保持一致
+                // 实际文件名示例：CKI2203760036_20251031125220-5190019.jpg
+                // 规则：{sn}_{yyyyMMddHHmmss}-{pin}.jpg
+                if (StringUtils.isNotBlank(rtlog.getSn())) {
+                    String timeStamp = null;
+                    if (rtlog.getLogTime() != null) {
+                        // 日志时间格式转换：yyyy-MM-dd HH:mm:ss -> yyyyMMddHHmmss
+                        DateTimeFormatter tsFmt = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+                        timeStamp = rtlog.getLogTime().format(tsFmt);
+                    }
+
+                    String fileName = "";
+                    if (StringUtils.isNotBlank(timeStamp)) {
+                        // 按实际保存规则拼接
+                        fileName = rtlog.getSn() + "_" + timeStamp + "-" + rtlog.getPin() + ".jpg";
+                    }
+                    String mediaPath = "iot/device/photos/" + fileName;
+                    payload.put("mediaFile", mediaPath);
+                }
+                String json = objectMapper.writeValueAsString(payload);
+                // 记录按到达顺序写入队列，确保消费顺序
+                redisTemplate.opsForList().rightPush(redisKey, json);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                log.warn("Failed to serialize rtlog for queue, sn={}", rtlog.getSn(), e);
+            }
+        }
     }
 
 

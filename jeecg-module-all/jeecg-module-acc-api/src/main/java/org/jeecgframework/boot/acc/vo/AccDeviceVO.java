@@ -85,6 +85,11 @@ public class AccDeviceVO {
     private LocalDateTime lastHeartbeatTime;
 
     /**
+     * 在线状态（true在线，false离线）
+     */
+    private Boolean online;
+
+    /**
      * 是否已授权
      */
     private Integer authorized;

@@ -82,6 +82,7 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 case "/iclock/registry" -> handleRegistry(message);
                 case "/iclock/push" -> handlePush(message);
                 case "/iclock/getrequest" -> handleHeartbeat(message);
+                case "/iclock/ping" -> handlePing(message);
                 case "/iclock/devicecmd" -> handleDeviceCommandReport(message);
                 // 增加回复时区/iclock/rtdata
                 case "/iclock/rtdata" -> handleRtdata(message);
@@ -219,6 +220,24 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
         String body = commands.stream().map(QueuedCommand::content).collect(Collectors.joining("\r\n\r\n"));
        // log.info("Send heartbeat to device {}", body);
         return DeviceResponse.text(body);
+    }
+
+    /**
+     * 按文档第9章：处理大数据上传期间的心跳。设备在大量数据上传时会以 /iclock/ping 保持心跳，
+     * 服务器仅记录心跳并回复 OK，不下发任何命令；数据上传完成后设备切回 /iclock/getrequest。
+     */
+    private DeviceResponse handlePing(DeviceMessage message) {
+        Map<String, String> query = message.getQueryParameters();
+        String sn = firstValue(query, "sn");
+        if (StringUtils.isBlank(sn)) {
+            return DeviceResponse.text(OK);
+        }
+        LocalDateTime heartbeatTime = LocalDateTime.now();
+        // 仅记录心跳，更新现有 iot:acc:heartbeat:{sn}
+        redisCache.recordHeartbeat(sn, message.getClientIp());
+        iotDeviceInnerService.markHeartbeat(sn, message.getClientIp(), heartbeatTime);
+        // ping 场景不返回命令，直接回复 OK
+        return DeviceResponse.text(OK);
     }
 
     private DeviceResponse handleDeviceCommandReport(DeviceMessage message) {
@@ -368,7 +387,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             logEntity.setClientIp(message.getClientIp());
             return logEntity;
         }).collect(Collectors.toList());
-        iotDeviceRtLogService.saveBatch(logs);
+        // 改为写入 Redis 队列，供 ACC 模块顺序消费
+        redisCache.enqueueRtLogs(logs);
     }
 
     private void handleState(String sn, DeviceMessage message) {
@@ -409,13 +429,10 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             return;
         }
         
-        // 生成文件名：设备SN_用户PIN_照片名称
+        // 生成文件名（与队列拼接逻辑保持一致）：设备SN_用户PIN
         String fileName = deviceSn;
         if (StringUtils.isNotBlank(pin)) {
             fileName += "_" + pin;
-        }
-        if (StringUtils.isNotBlank(photoName)) {
-            fileName += "_" + photoName;
         }
         
         // 保存图片文件
@@ -514,20 +531,50 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             // 解码 base64
             byte[] imageBytes = Base64.getDecoder().decode(cleanBase64);
             
-            // 生成文件名
-            String fullFileName = fileName + "_" + System.currentTimeMillis() + ".jpg";
-            String bizPath = "iot/device/photos";
+            // 统一扩展名（尽量从data:image/xxx前缀识别，否则用jpg）
+            String ext = "jpg";
+            String header = base64Data.length() > 30 ? base64Data.substring(0, 30) : base64Data;
+            if (header.startsWith("data:image/") && header.contains(";")) {
+                String fmt = header.substring("data:image/".length(), header.indexOf(";"));
+                if (StringUtils.isNotBlank(fmt)) {
+                    ext = "jpeg".equalsIgnoreCase(fmt) ? "jpg" : fmt.toLowerCase();
+                }
+            }
             
-            // 根据配置保存文件
+            // 与 rtlog 拼接保持一致：bizPath + "/" + (sn_pin + ".ext")
+            String bizPath = "iot/device/photos";
+            String safeBase = CommonUtils.getFileName(fileName);
+            // 如果传入的基础名已经包含图片扩展，先去掉，避免出现 .jpg.jpg
+            String safeBaseNoExt = stripImageExt(safeBase);
+            String finalName = safeBaseNoExt + "." + ext;
+            String relativePath = bizPath + "/" + finalName;
+            
             String filePath;
             if (CommonConstant.UPLOAD_TYPE_LOCAL.equals(uploadType)) {
-                filePath = CommonUtils.uploadOnlineImage(imageBytes, uploadPath, bizPath, uploadType);
+                java.io.File dir = new java.io.File(uploadPath + java.io.File.separator + bizPath + java.io.File.separator);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+                java.io.File saveFile = new java.io.File(dir, finalName);
+                org.springframework.util.FileCopyUtils.copy(imageBytes, saveFile);
+                String dbPath = bizPath + java.io.File.separator + finalName;
+                if (dbPath.contains("\\")) {
+                    dbPath = dbPath.replace("\\", "/");
+                }
+                filePath = dbPath;
+            } else if (org.jeecg.common.constant.CommonConstant.UPLOAD_TYPE_MINIO.equals(uploadType)) {
+                java.io.InputStream in = new java.io.ByteArrayInputStream(imageBytes);
+                filePath = org.jeecg.common.util.MinioUtil.upload(in, relativePath);
+            } else if (org.jeecg.common.constant.CommonConstant.UPLOAD_TYPE_OSS.equals(uploadType)) {
+                java.io.InputStream in = new java.io.ByteArrayInputStream(imageBytes);
+                filePath = org.jeecg.common.util.oss.OssBootUtil.upload(in, relativePath);
             } else {
+                // 兜底：沿用通用上传（可能文件名不一致）
                 filePath = CommonUtils.uploadOnlineImage(imageBytes, uploadPath, bizPath, uploadType);
             }
             
-            log.info("Successfully saved device photo: fileName={}, filePath={}, size={} bytes", 
-                    fullFileName, filePath, imageBytes.length);
+            log.info("Successfully saved device photo: finalName={}, filePath={}, size={} bytes", 
+                    finalName, filePath, imageBytes.length);
             
             return filePath;
             
@@ -535,6 +582,24 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             log.error("Failed to save base64 image: fileName={}", fileName, e);
             return null;
         }
+    }
+
+    /**
+     * 去掉文件名末尾的图片扩展名（jpg/jpeg/png/gif/webp），避免重复追加扩展
+     */
+    private String stripImageExt(String name) {
+        if (name == null) {
+            return "";
+        }
+        int dot = name.lastIndexOf('.');
+        if (dot > -1 && dot < name.length() - 1) {
+            String suffix = name.substring(dot + 1).toLowerCase();
+            if (suffix.equals("jpg") || suffix.equals("jpeg") || suffix.equals("png")
+                    || suffix.equals("gif") || suffix.equals("webp")) {
+                return name.substring(0, dot);
+            }
+        }
+        return name;
     }
 
     private String firstValue(Map<String, String> map, String... keys) {
