@@ -16,6 +16,8 @@ import org.jeecg.modules.acc.mapper.AccDeviceMapper;
 import org.jeecg.modules.acc.entity.AccDevice;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.apache.shiro.SecurityUtils;
+import org.jeecg.common.system.vo.LoginUser;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -91,6 +93,111 @@ public class AccDoorController {
         Page<AccDoorVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         voPage.setRecords(voList);
         return Result.OK(voPage);
+    }
+
+    /**
+     * 远程开门（支持批量门ID）
+     */
+    @PostMapping("/remoteOpen")
+    @Operation(summary = "远程开门（批量）")
+    public Result<?> remoteOpen(@RequestBody RemoteOpenRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要开门的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteOpenDoors(request.getIds(), request.getPulseSeconds(), operator);
+        return Result.OK("已下发开门命令");
+    }
+
+    /**
+     * 远程关门/锁定（支持批量门ID）
+     */
+    @PostMapping("/remoteClose")
+    @Operation(summary = "远程关门（批量）")
+    public Result<?> remoteClose(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要关门的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteCloseDoors(request.getIds(), operator);
+        return Result.OK("已下发关门/锁定命令");
+    }
+
+    /**
+     * 取消报警（支持批量门ID）
+     */
+    @PostMapping("/remoteCancelAlarm")
+    @Operation(summary = "取消报警（批量）")
+    public Result<?> remoteCancelAlarm(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteCancelAlarmDoors(request.getIds(), operator);
+        return Result.OK("已下发取消报警命令");
+    }
+
+    /**
+     * 远程常开（支持批量门ID）
+     */
+    @PostMapping("/remoteHoldOpen")
+    @Operation(summary = "远程常开（批量）")
+    public Result<?> remoteHoldOpen(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteHoldOpenDoors(request.getIds(), operator);
+        return Result.OK("已下发远程常开命令");
+    }
+
+    /**
+     * 远程锁定（支持批量门ID）
+     */
+    @PostMapping("/remoteLock")
+    @Operation(summary = "远程锁定（批量）")
+    public Result<?> remoteLock(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteLockDoors(request.getIds(), operator);
+        return Result.OK("已下发远程锁定命令");
+    }
+
+    /**
+     * 远程解锁（支持批量门ID）
+     */
+    @PostMapping("/remoteUnlock")
+    @Operation(summary = "远程解锁（批量）")
+    public Result<?> remoteUnlock(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.remoteUnlockDoors(request.getIds(), operator);
+        return Result.OK("已下发远程解锁命令");
+    }
+
+    public static class RemoteOpenRequest {
+        private java.util.List<String> ids;
+        private Integer pulseSeconds;
+        public java.util.List<String> getIds() { return ids; }
+        public void setIds(java.util.List<String> ids) { this.ids = ids; }
+        public Integer getPulseSeconds() { return pulseSeconds; }
+        public void setPulseSeconds(Integer pulseSeconds) { this.pulseSeconds = pulseSeconds; }
+    }
+
+    public static class RemoteCloseRequest {
+        private java.util.List<String> ids;
+        public java.util.List<String> getIds() { return ids; }
+        public void setIds(java.util.List<String> ids) { this.ids = ids; }
     }
 
     /**

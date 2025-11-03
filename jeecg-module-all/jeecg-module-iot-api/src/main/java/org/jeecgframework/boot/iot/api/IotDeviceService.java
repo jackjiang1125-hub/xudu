@@ -214,6 +214,36 @@ public interface IotDeviceService  {
     void addUserWithAuthorize(String sn, String pin, String name, Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId);
 
     /**
+     * 远程开门（CONTROL DEVICE），由实现内部调用控制命令分发器。
+     */
+    void remoteOpenDoor(String sn, Integer doorId, Integer pulseSeconds, String operator);
+
+    /**
+     * 远程关门/锁定（SET OPTIONS DoorXMaskFlag=2），由实现内部调用控制命令分发器。
+     */
+    void remoteCloseDoor(String sn, Integer doorId, String operator);
+
+    /**
+     * 取消报警（CONTROL DEVICE 02010000）。
+     */
+    void remoteCancelAlarm(String sn, Integer doorId, String operator);
+
+    /**
+     * 远程常开（CONTROL DEVICE 010101ff）。
+     */
+    void remoteHoldOpen(String sn, Integer doorId, String operator);
+
+    /**
+     * 远程锁定（CONTROL DEVICE 06010100）。
+     */
+    void remoteLockDoor(String sn, Integer doorId, String operator);
+
+    /**
+     * 远程解锁（CONTROL DEVICE 06010000）。
+     */
+    void remoteUnlockDoor(String sn, Integer doorId, String operator);
+
+    /**
      * 下发人员新增（含权限）命令序列（增强版）。固定 4 条基础命令：
      * 1) DATA UPDATE user（人员信息）
      * 2) DATA UPDATE userauthorize（门禁权限）

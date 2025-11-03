@@ -109,7 +109,8 @@ public class AccRtLogConsumer implements Runnable {
                 }
             }
         } catch (Exception ignored) { }
-        tx.setPin(str(m.get("pin")));
+        String pin = str(m.get("pin"));
+        tx.setPin("0".equals(pin) ? null : pin);
         String cardNo = (String) m.get("cardNo");
         tx.setCardNo("0".equals(cardNo) ? null : cardNo);
         tx.setEventAddr(intOrNull(m.get("eventAddr")));

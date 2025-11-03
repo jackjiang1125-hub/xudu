@@ -105,8 +105,16 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             return handleInitialization(message, query);
         }
         if (StringUtils.isBlank(table)) {
-            return DeviceResponse.text(400, "MISSING TABLE");
+            String AuthType = firstValue(query, "AuthType");
+            if (StringUtils.isBlank(AuthType)) {
+                return DeviceResponse.text(400, "MISSING AuthType");
+            } else if ("device".equals(AuthType)) {
+                return handleBackendVerify(sn, message);
+            } else {
+                return DeviceResponse.text(400, "MISSING TABLE");
+            }
         }
+        
         switch (table.toLowerCase()) {
             case "rtlog" -> handleRtLog(sn, message);
             case "rtstate" -> handleState(sn, message);
@@ -334,6 +342,46 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
     }
 
     /**
+     * 解析关键字段并记录日志，默认返回验证成功（OK）。
+     * 典型payload键：pin/cardno/door/verifytype/inoutstatus/event/time 等（设备可能大小写不一致）。
+     */
+    private DeviceResponse handleBackendVerify(String sn, DeviceMessage message) {
+        Map<String, String> payload = DevicePayloadParser.parseKeyValuePayload(message.getPayload());
+
+        // String sn = firstValue(query, "sn");
+        String pin = firstValue(payload, "pin", "PIN");
+        String cardNo = firstValue(payload, "cardno", "CardNo");
+        String door = firstValue(payload, "door", "DoorId", "Door");
+        String verifyType = firstValue(payload, "verifytype", "VerifyType");
+        String inOutStatus = firstValue(payload, "inoutstatus", "InOutStatus");
+        String event = firstValue(payload, "event", "Event");
+        String time = firstValue(payload, "time", "Time");
+
+        log.info("Backend verify request: sn={}, pin={}, cardNo={}, door={}, verifyType={}, inOutStatus={}, event={}, time={}, ip={}, raw={}",
+                sn, pin, cardNo, door, verifyType, inOutStatus, event, time, message.getClientIp(), message.getPayload());
+
+        // 根据《安防PUSH通讯协议》后端验证成功返回格式：
+        // 返回认证通过并允许开门，携带门号与继电器脉冲时长等参数。
+        // 说明：部分固件对大小写不敏感，建议使用标准键名；分隔符采用换行，设备按行解析键值。
+        String doorId = StringUtils.isBlank(door) ? "1" : door;
+        String pulseSeconds = "3"; // 默认脉冲时长（秒），可按需调整/配置
+        // 返回 AUTH 行 + CONTROL DEVICE 行，统一使用 CRLF 作为行分隔符
+        String body = new StringBuilder()
+                .append("AUTH=SUCCESS\r\n")
+                .append(message.getPayload())
+                .append("\r\n")
+                .append("CONTROL DEVICE 1 ").append(doorId).append(" 1 ").append(pulseSeconds).append("\r\n")
+                .toString();
+
+        log.info("Backend verify body: {}", body);
+
+        return DeviceResponse.builder()
+                .body(body)
+                .contentType("text/plain; charset=UTF-8")
+                .build();
+    }
+
+    /**
      * 附录5旧编码算法（基于 UTC）：
      * tt = ((year-2000)*12*31 + ((mon-1)*31) + day-1) * 86400 + (hour*60+min)*60 + sec
      */
@@ -389,6 +437,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
         }).collect(Collectors.toList());
         // 改为写入 Redis 队列，供 ACC 模块顺序消费
         redisCache.enqueueRtLogs(logs);
+        // 同步通过Redis发布订阅，推送到WebSocket进行前端实时展示
+        redisCache.publishRtLogMessages(logs);
     }
 
     private void handleState(String sn, DeviceMessage message) {

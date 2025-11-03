@@ -11,7 +11,12 @@ import org.jeecg.modules.acc.mapstruct.AccDoorMapstruct;
 import org.jeecg.modules.acc.service.IAccDoorService;
 import org.jeecg.modules.acc.vo.AccDoorVO;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Service;
+import org.jeecgframework.boot.iot.api.IotDeviceService;
+import java.util.List;
 
 /**
  * 门列表 ServiceImpl
@@ -21,6 +26,37 @@ public class AccDoorServiceImpl extends JeecgServiceImpl<AccDoorMapper, AccDoor>
 
     @Autowired
     private AccDoorMapstruct accDoorMapstruct;
+
+    @Autowired
+    private IotDeviceService iotDeviceService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    /**
+     * 判断设备是否在线：基于最新心跳时间戳（Redis键：iot:acc:heartbeat:<sn>），5秒内视为在线。
+     */
+    private boolean isDeviceOnline(String sn) {
+        if (StringUtils.isBlank(sn)) {
+            return false;
+        }
+        try {
+            String json = redisTemplate.opsForValue().get("iot:acc:heartbeat:" + sn);
+            if (StringUtils.isNotBlank(json)) {
+                JsonNode node = objectMapper.readTree(json);
+                if (node != null && node.has("timestamp")) {
+                    long ts = node.get("timestamp").asLong();
+                    return (System.currentTimeMillis() - ts) <= 5_000L;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
 
     @Override
     public IPage<AccDoor> pageDoors(String deviceName, String doorName, String ipAddress, Integer pageNo, Integer pageSize) {
@@ -56,5 +92,141 @@ public class AccDoorServiceImpl extends JeecgServiceImpl<AccDoorMapper, AccDoor>
         }
         // 使用 Lambda 与列名两种方式删除，提升兼容性
         this.remove(new LambdaQueryWrapper<AccDoor>().eq(AccDoor::getDeviceSn, deviceSn));
+    }
+
+    @Override
+    public void remoteOpenDoors(List<String> doorIds, Integer pulseSeconds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            // 在线检测
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            // 统一调用 IoT Service 的远程开门方法
+            iotDeviceService.remoteOpenDoor(sn, doorNumber, pulseSeconds, operator);
+        }
+    }
+
+    @Override
+    public void remoteCloseDoors(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            // 在线检测
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            // 统一调用 IoT Service 的远程关门/锁定方法
+            iotDeviceService.remoteCloseDoor(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void remoteCancelAlarmDoors(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.remoteCancelAlarm(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void remoteHoldOpenDoors(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.remoteHoldOpen(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void remoteLockDoors(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.remoteLockDoor(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void remoteUnlockDoors(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.remoteUnlockDoor(sn, doorNumber, operator);
+        }
     }
 }

@@ -1,6 +1,5 @@
 package org.jeecg.modules.iot.utils.zkteco;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -32,14 +31,8 @@ public final class ControlDeviceCommandFactory {
      * @param pulseSeconds 保持继电器动作的秒数（可空，设备默认值生效）
      */
     public static String buildOpenDoor(int cmdId, int doorId, Integer pulseSeconds) {
-        Map<String, Object> params = new LinkedHashMap<>();
-        // 约定键名与设备状态上报中的字段保持一致（Door/Relay），便于后续对齐与扩展
-        params.put("Door", doorId);
-        params.put("Relay", 1); // 1 表示触发开锁继电器
-        if (pulseSeconds != null) {
-            params.put("Pulse", pulseSeconds);
-        }
-        return buildControlDevice(cmdId, params);
+        String payload = encodePayload(doorId, true, pulseSeconds);
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
     }
 
     /**
@@ -76,5 +69,119 @@ public final class ControlDeviceCommandFactory {
      */
     public static ControlCommand raw(Map<String, ?> params) {
         return (cmdId) -> buildControlDevice(cmdId, params);
+    }
+    
+    /**
+     * 构建远程关门控制命令（数值编码）。示例：C:<cmdId>:CONTROL DEVICE 01010100
+     */
+    public static String buildCloseDoor(int cmdId, int doorId) {
+        String payload = encodePayload(doorId, false, 0);
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    /**
+     * 便捷封装：远程关门命令
+     */
+    public static ControlCommand closeDoor(int doorId) {
+        return (cmdId) -> buildCloseDoor(cmdId, doorId);
+    }
+
+    /**
+     * 构建取消报警命令。示例：C:<cmdId>:CONTROL DEVICE 02010000
+     */
+    public static String buildCancelAlarm(int cmdId, int doorId) {
+        // 按协议标准固定编码：02010000（取消报警）
+        String payload = "02010000";
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    /**
+     * 构建远程常开命令（保持开门，脉冲为 ff）。示例：C:<cmdId>:CONTROL DEVICE 010101ff
+     */
+    public static String buildHoldOpen(int cmdId, int doorId) {
+        String payload = encodePayloadFlexible(doorId, "01", "ff");
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    /**
+     * 构建远程锁定命令。示例：C:<cmdId>:CONTROL DEVICE 06010100
+     */
+    public static String buildLockDoor(int cmdId, int doorId) {
+        // 按协议标准固定编码：06010100（远程锁定）
+        String payload = "06010100";
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    /**
+     * 构建远程解锁命令。示例：C:<cmdId>:CONTROL DEVICE 06010000
+     */
+    public static String buildUnlockDoor(int cmdId, int doorId) {
+        // 按协议标准固定编码：06010000（远程解锁）
+        String payload = "06010000";
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    /**
+     * 便捷封装：取消报警命令
+     */
+    public static ControlCommand cancelAlarm(int doorId) {
+        return (cmdId) -> buildCancelAlarm(cmdId, doorId);
+    }
+
+    /**
+     * 便捷封装：远程常开命令
+     */
+    public static ControlCommand holdOpen(int doorId) {
+        return (cmdId) -> buildHoldOpen(cmdId, doorId);
+    }
+
+    /**
+     * 便捷封装：远程锁定命令
+     */
+    public static ControlCommand lockDoor(int doorId) {
+        return (cmdId) -> buildLockDoor(cmdId, doorId);
+    }
+
+    /**
+     * 便捷封装：远程解锁命令
+     */
+    public static ControlCommand unlockDoor(int doorId) {
+        return (cmdId) -> buildUnlockDoor(cmdId, doorId);
+    }
+
+    /**
+     * 编码载荷为两位数序列：[DoorId][RelayId][ActionCode][PulseSeconds]
+     * DoorId>=1，RelayId固定01，ActionCode固定01，关门时Pulse=00。
+     */
+    private static String encodePayload(int doorId, boolean open, Integer pulseSeconds) {
+        int d = doorId <= 0 ? 1 : Math.min(doorId, 99);
+        int relay = 1;
+        int action = 1;
+        int pulse = open ? (pulseSeconds == null ? 5 : Math.max(0, Math.min(pulseSeconds, 99))) : 0;
+        return String.format("%02d%02d%02d%02d", d, relay, action, pulse);
+    }
+
+    /**
+     * 灵活编码载荷，允许指定动作码与脉冲为十六进制 "ff"。
+     * @param doorId 门编号（1..99）
+     * @param action 两位动作码（例如 "00" 解锁、"01" 开/锁定）
+     * @param pulse 两位脉冲码（例如 "00"、"05"、或 "ff" 表示常开）
+     */
+    private static String encodePayloadFlexible(int doorId, String action, String pulse) {
+        int d = doorId <= 0 ? 1 : Math.min(doorId, 99);
+        String d2 = String.format("%02d", d);
+        String relay2 = "01";
+        String a2 = action == null ? "01" : action.toLowerCase();
+        String p2;
+        if (pulse == null) {
+            p2 = "00";
+        } else if ("ff".equalsIgnoreCase(pulse)) {
+            p2 = "ff";
+        } else {
+            // 数值两位十进制
+            int p = Math.max(0, Math.min(Integer.parseInt(pulse), 99));
+            p2 = String.format("%02d", p);
+        }
+        return d2 + relay2 + a2 + p2;
     }
 }

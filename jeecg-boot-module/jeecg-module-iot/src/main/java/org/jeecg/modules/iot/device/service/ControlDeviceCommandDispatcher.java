@@ -44,6 +44,52 @@ public class ControlDeviceCommandDispatcher {
     }
 
     /**
+     * 远程关门（单条命令）。
+     * 示例：CONTROL DEVICE 01010100
+     */
+    public List<IotDeviceCommand> closeDoor(String sn, int doorId, String operator) {
+        int startCmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildCloseDoor(startCmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    /**
+     * 取消报警（单条命令）。示例：CONTROL DEVICE 02010000
+     */
+    public List<IotDeviceCommand> cancelAlarm(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildCancelAlarm(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    /**
+     * 远程常开（单条命令）。示例：CONTROL DEVICE 010101ff
+     */
+    public List<IotDeviceCommand> holdOpen(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildHoldOpen(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    /**
+     * 远程锁定（单条命令）。示例：CONTROL DEVICE 06010100
+     */
+    public List<IotDeviceCommand> lockDoor(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildLockDoor(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    /**
+     * 远程解锁（单条命令）。示例：CONTROL DEVICE 06010000
+     */
+    public List<IotDeviceCommand> unlockDoor(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildUnlockDoor(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    /**
      * 通用批量控制指令下发：可扩展为多条不同的 CONTROL DEVICE 命令。
      * @param sn 设备序列号
      * @param commands 控制命令构造器列表

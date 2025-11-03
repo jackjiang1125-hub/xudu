@@ -282,4 +282,45 @@ public class AccDeviceController {
      */
     public record SyncTimeRequest(List<String> sns, Long timestamp) {
     }
+
+    /**
+     * 批量设置后台验证参数（AutoServerMode + ReaderOfflineRefuse）
+     */
+    @PostMapping("/setBackendVerification")
+    @Operation(summary = "批量设置后台验证参数")
+    public Result<Object> setBackendVerification(@RequestBody BackendVerificationRequest request) {
+        if (request == null || request.sns() == null || request.sns().isEmpty()) {
+            return Result.error("参数sns不能为空");
+        }
+        boolean enabled = request.enabled() != null && request.enabled();
+        String policy = StringUtils.defaultString(request.offlinePolicy(), "standard");
+        List<String> failed = new ArrayList<>();
+        for (String sn : request.sns()) {
+            try {
+                int autoServerMode = enabled ? 1 : 0;
+                int refuse = (enabled && "reject".equalsIgnoreCase(policy)) ? 1 : 0;
+                java.util.Map<String, Integer> params = new java.util.LinkedHashMap<>();
+                params.put("Reader2OfflineRefuse", refuse);
+                params.put("Reader1OfflineRefuse", refuse);
+                params.put("AutoServerMode", autoServerMode);
+                iotDeviceService.setReaderOfflineAccess(sn, params);
+            } catch (Exception e) {
+                log.warn("设置后台验证失败 sn={} err={}", sn, e.getMessage());
+                failed.add(sn);
+            }
+        }
+        int total = request.sns().size();
+        int success = total - failed.size();
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("total", total);
+        data.put("success", success);
+        data.put("failed", failed);
+        return Result.OK(data);
+    }
+
+    /**
+     * 后台验证参数请求
+     */
+    public record BackendVerificationRequest(List<String> sns, Boolean enabled, String offlinePolicy) {
+    }
 }

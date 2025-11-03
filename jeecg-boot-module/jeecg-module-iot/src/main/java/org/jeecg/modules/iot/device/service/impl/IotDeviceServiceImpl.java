@@ -186,6 +186,55 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         controlDeviceCommandDispatcher.syncTimezone(deviceSn, timezone, "");
     }
 
+    @Override
+    public void remoteOpenDoor(String sn, Integer doorId, Integer pulseSeconds, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.openDoor(sn, doorId, pulseSeconds, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void remoteCloseDoor(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        // 关门：使用控制命令数值编码（示例 01010100）
+        controlDeviceCommandDispatcher.closeDoor(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void remoteCancelAlarm(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.cancelAlarm(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void remoteHoldOpen(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.holdOpen(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void remoteLockDoor(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.lockDoor(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void remoteUnlockDoor(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.unlockDoor(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
     // 删除一体化模板，type=8是掌静脉
     @Override
     public void deleteAllTemplatesType8(String sn) {

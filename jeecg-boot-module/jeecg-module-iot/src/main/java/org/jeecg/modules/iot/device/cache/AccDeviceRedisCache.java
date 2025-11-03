@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
+import org.jeecg.common.base.BaseMap;
+import org.jeecg.common.constant.WebsocketConst;
+import org.jeecg.common.modules.redis.client.JeecgRedisClient;
 import org.jeecg.modules.iot.device.entity.IotDeviceRtLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +35,7 @@ public class AccDeviceRedisCache {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final JeecgRedisClient jeecgRedisClient;
 
     public void cacheInitializationSnapshot(String sn, Map<String, String> queryParams, String clientIp) {
         if (StringUtils.isBlank(sn)) {
@@ -174,6 +178,68 @@ public class AccDeviceRedisCache {
                 redisTemplate.opsForList().rightPush(redisKey, json);
             } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
                 log.warn("Failed to serialize rtlog for queue, sn={}", rtlog.getSn(), e);
+            }
+        }
+    }
+
+    /**
+     * 通过 Redis 发布订阅机制，将 rtlog 实时推送到 JeecgBoot WebSocket 通道。
+     * 通道名遵循系统约定：socketHandler（与 WebSocket.REDIS_TOPIC_NAME 一致）。
+     */
+    public void publishRtLogMessages(List<IotDeviceRtLog> logs) {
+        if (logs == null || logs.isEmpty()) {
+            return;
+        }
+        final String topic = "socketHandler";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        for (IotDeviceRtLog rtlog : logs) {
+            try {
+                Map<String, Object> msg = new HashMap<>();
+                String sn = rtlog.getSn();
+                String logTimeStr = rtlog.getLogTime() != null ? rtlog.getLogTime().format(formatter) : null;
+                // 标准 websocket 字段
+                msg.put(WebsocketConst.MSG_CMD, "acc_rtlog");
+                msg.put(WebsocketConst.MSG_ID, (sn != null ? sn : "") + "-" + (rtlog.getRecordIndex() != null ? rtlog.getRecordIndex() : logTimeStr));
+                msg.put(WebsocketConst.MSG_TXT, "ACC实时事件");
+                // 业务负载
+                msg.put("sn", sn);
+                msg.put("logTime", logTimeStr);
+                msg.put("pin", rtlog.getPin());
+                msg.put("cardNo", rtlog.getCardNo());
+                msg.put("eventAddr", rtlog.getEventAddr());
+                msg.put("eventCode", rtlog.getEventCode());
+                msg.put("inoutStatus", rtlog.getInoutStatus());
+                msg.put("verifyType", rtlog.getVerifyType());
+                msg.put("recordIndex", rtlog.getRecordIndex());
+                msg.put("siteCode", rtlog.getSiteCode());
+                msg.put("linkId", rtlog.getLinkId());
+                msg.put("maskFlag", rtlog.getMaskFlag());
+                msg.put("temperature", rtlog.getTemperature());
+                msg.put("convTemperature", rtlog.getConvTemperature());
+                msg.put("clientIp", rtlog.getClientIp());
+                // 复用队列中的 mediaFile 命名规则
+                if (StringUtils.isNotBlank(rtlog.getSn())) {
+                    String timeStamp = null;
+                    if (rtlog.getLogTime() != null) {
+                        DateTimeFormatter tsFmt = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+                        timeStamp = rtlog.getLogTime().format(tsFmt);
+                    }
+                    String fileName = "";
+                    if (StringUtils.isNotBlank(timeStamp)) {
+                        fileName = rtlog.getSn() + "_" + timeStamp + "-" + rtlog.getPin() + ".jpg";
+                    }
+                    String mediaPath = "iot/device/photos/" + fileName;
+                    msg.put("mediaFile", mediaPath);
+                }
+
+                String json = objectMapper.writeValueAsString(msg);
+                BaseMap baseMap = new BaseMap();
+                // 为空代表广播给所有在线用户
+                baseMap.put("userId", "");
+                baseMap.put("message", json);
+                jeecgRedisClient.sendMessage(topic, baseMap);
+            } catch (Exception e) {
+                log.warn("Failed to publish rtlog websocket message, sn={}", rtlog.getSn(), e);
             }
         }
     }

@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.system.query.QueryGenerator;
@@ -34,6 +33,8 @@ public class AccTransactionController {
                                           @RequestParam(defaultValue = "10") Integer pageSize,
                                           HttpServletRequest req) {
         QueryWrapper<AccTransaction> qw = QueryGenerator.initQueryWrapper(accTransaction, req.getParameterMap());
+        // 创建时间倒序
+        qw.orderByDesc("create_time");
         Page<AccTransaction> page = new Page<>(pageNo, pageSize);
         return Result.OK(accTransactionService.page(page, qw));
     }
