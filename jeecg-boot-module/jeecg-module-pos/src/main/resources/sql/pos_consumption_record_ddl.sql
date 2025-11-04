@@ -1,0 +1,53 @@
+-- 消费记录主表 DDL
+CREATE TABLE `pos_consumption_record` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `record_no` varchar(64) DEFAULT NULL COMMENT '消费单号',
+  `card_no` varchar(32) DEFAULT NULL COMMENT '卡号',
+  `customer_id` varchar(32) DEFAULT NULL COMMENT '人员编号',
+  `customer_name` varchar(64) DEFAULT NULL COMMENT '人员姓名',
+  `customer_type` varchar(32) DEFAULT NULL COMMENT '人员类型',
+  `type` varchar(32) DEFAULT NULL COMMENT '消费类型 (product: 商品消费, meal: 餐饮消费, recharge: 充值扣减, service: 服务扣费)',
+  `amount` decimal(18,4) DEFAULT NULL COMMENT '消费金额',
+  `discount_amount` decimal(18,4) DEFAULT NULL COMMENT '折扣金额',
+  `discount_percent` decimal(10,2) DEFAULT NULL COMMENT '折扣百分比',
+  `balance_after` decimal(18,4) DEFAULT NULL COMMENT '消费后余额',
+  `device_name` varchar(64) DEFAULT NULL COMMENT '设备名称',
+  `device_code` varchar(64) DEFAULT NULL COMMENT '设备序列号',
+  `restaurant_code` varchar(32) DEFAULT NULL COMMENT '餐厅编码',
+  `scene` varchar(64) DEFAULT NULL COMMENT '餐厅名称',
+  `verify_method` varchar(32) DEFAULT NULL COMMENT '验证方式',
+  `channel` varchar(32) DEFAULT NULL COMMENT '消费渠道',
+  `operator` varchar(64) DEFAULT NULL COMMENT '操作员',
+  `consume_time` datetime DEFAULT NULL COMMENT '消费时间',
+  `remark` varchar(512) DEFAULT NULL COMMENT '备注',
+  `create_by` varchar(32) DEFAULT NULL COMMENT '创建人',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_by` varchar(32) DEFAULT NULL COMMENT '修改人',
+  `update_time` datetime DEFAULT NULL COMMENT '修改时间',
+  `sys_org_code` varchar(64) DEFAULT NULL COMMENT '所属部门',
+  PRIMARY KEY (`id`),
+  KEY `idx_record_no` (`record_no`),
+  KEY `idx_customer_id` (`customer_id`),
+  KEY `idx_card_no` (`card_no`),
+  KEY `idx_consume_time` (`consume_time`),
+  KEY `idx_restaurant_code` (`restaurant_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='消费记录表';
+
+-- 消费记录明细表 DDL
+CREATE TABLE `pos_consumption_detail` (
+  `id` varchar(32) NOT NULL COMMENT '主键ID',
+  `record_id` varchar(32) DEFAULT NULL COMMENT '消费记录ID',
+  `sku_code` varchar(64) DEFAULT NULL COMMENT 'SKU编码',
+  `product_name` varchar(128) DEFAULT NULL COMMENT '商品名称',
+  `unit_price` decimal(18,4) DEFAULT NULL COMMENT '单价',
+  `quantity` int(11) DEFAULT NULL COMMENT '数量',
+  `total_amount` decimal(18,4) DEFAULT NULL COMMENT '小计金额',
+  `create_by` varchar(32) DEFAULT NULL COMMENT '创建人',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_by` varchar(32) DEFAULT NULL COMMENT '修改人',
+  `update_time` datetime DEFAULT NULL COMMENT '修改时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_record_id` (`record_id`),
+  KEY `idx_sku_code` (`sku_code`),
+  CONSTRAINT `fk_detail_record_id` FOREIGN KEY (`record_id`) REFERENCES `pos_consumption_record` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='消费记录明细表';
