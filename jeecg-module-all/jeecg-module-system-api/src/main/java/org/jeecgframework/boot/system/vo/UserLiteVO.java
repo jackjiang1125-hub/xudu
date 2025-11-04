@@ -21,4 +21,8 @@ public class UserLiteVO {
     private String avatar;
     /** 人脸抠图（URL/相对路径/Base64） */
     private String faceCutout;
+    /** 人员卡号（SysUser.cardNumber） */
+    private String cardNumber;
+    /** 人员管理密码（SysUser.adminPassword） */
+    private String adminPassword;
 }

@@ -81,9 +81,11 @@ public class AccIoTDispatchService {
             String pin = resolvePin(workNo, username, memberId);
             String userPic = (u == null) ? null : toBase64OrNull(safe(u.getAvatar()));
             String bioPhoto = (u == null) ? null : toBase64OrNull(safe(u.getFaceCutout()));
+            String cardNumber = (u == null) ? null : safe(u.getCardNumber());
+            String adminPassword = (u == null) ? null : safe(u.getAdminPassword());
             for (String sn : sns) {
                 try {
-                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto);
+                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto, cardNumber, adminPassword);
                 } catch (Exception e) {
                     log.warn("[Dispatch] 新增成员下发失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
                 }
@@ -138,9 +140,11 @@ public class AccIoTDispatchService {
             String pin = resolvePin(workNo, username, memberId);
             String userPic = (u == null) ? null : toBase64OrNull(safe(u.getAvatar()));
             String bioPhoto = (u == null) ? null : toBase64OrNull(safe(u.getFaceCutout()));
+            String cardNumber = (u == null) ? null : safe(u.getCardNumber());
+            String adminPassword = (u == null) ? null : safe(u.getAdminPassword());
             for (String sn : sns) {
                 try {
-                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto);
+                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto, cardNumber, adminPassword);
                 } catch (Exception e) {
                     log.warn("[Dispatch] 设备新增同步成员失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
                 }

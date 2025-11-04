@@ -51,17 +51,10 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.Base64;
 
 /**
  * <p>
@@ -112,9 +105,6 @@ public class SysUserController {
 
     @Autowired
     private ISysUserTenantService userTenantService;
-
-    @Autowired
-    private JeecgRedisClient jeecgRedisClient;
 
     @Autowired
     private IFaceCropService faceCropService;
@@ -2074,6 +2064,95 @@ public class SysUserController {
     @RequestMapping(value = "/importAppUser", method = RequestMethod.POST)
     public Result<?> importAppUser(HttpServletRequest request, HttpServletResponse response)throws IOException {
         return sysUserService.importAppUser(request);
+    }
+    
+    /**
+     * 业务用户导入模板下载
+     */
+    @RequestMapping(value = "/bizUserImportTemplate", method = RequestMethod.GET)
+    public ModelAndView bizUserImportTemplate() {
+        ModelAndView mv = new ModelAndView(new JeecgEntityExcelView());
+        mv.addObject(NormalExcelConstants.FILE_NAME, "业务用户导入模板");
+        mv.addObject(NormalExcelConstants.CLASS, org.jeecg.modules.system.vo.BizUserImportVo.class);
+        LoginUser user = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        ExportParams exportParams = new ExportParams(
+            "导入说明：\n" +
+            "1、支持填写卡号与管理员密码（用于设备授权下发）；\n" +
+            "2、可选字段：真实姓名、电话、邮箱、性别、状态、工号。",
+            "导出人:" + user.getRealname(),
+            "业务用户导入模板"
+        );
+        mv.addObject(NormalExcelConstants.PARAMS, exportParams);
+        mv.addObject(NormalExcelConstants.DATA_LIST, new ArrayList<org.jeecg.modules.system.vo.BizUserImportVo>());
+        return mv;
+    }
+
+    /**
+     * 业务用户导入
+     */
+    @RequestMapping(value = "/importBizExcel", method = RequestMethod.POST)
+    public Result<?> importBizExcel(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
+        Map<String, MultipartFile> fileMap = multipartRequest.getFileMap();
+        List<String> errorMessage = new ArrayList<>();
+        int successLines = 0, errorLines = 0;
+        for (Map.Entry<String, MultipartFile> entity : fileMap.entrySet()) {
+            MultipartFile file = entity.getValue();
+            ImportParams params = new ImportParams();
+            params.setTitleRows(2);
+            params.setHeadRows(1);
+            params.setNeedSave(true);
+            try {
+                List<org.jeecg.modules.system.vo.BizUserImportVo> list = ExcelImportUtil.importExcel(
+                    file.getInputStream(), org.jeecg.modules.system.vo.BizUserImportVo.class, params);
+                for (int i = 0; i < list.size(); i++) {
+                    int lineNumber = i + 1;
+                    org.jeecg.modules.system.vo.BizUserImportVo vo = list.get(i);
+                    try {
+                        SysUser userEntity = new SysUser();
+                        userEntity.setRealname(vo.getRealname());
+                        userEntity.setPhone(vo.getPhone());
+                        userEntity.setEmail(vo.getEmail());
+                        userEntity.setSex(vo.getSex());
+                        userEntity.setStatus(1);
+                        userEntity.setWorkNo(vo.getWorkNo());
+                        userEntity.setCardNumber(vo.getCardNumber());
+                        userEntity.setAdminPassword(vo.getAdminPassword());
+                        userEntity.setUserType(2); // 业务用户
+                        // 设置登录密码并加盐加密（为空则默认123456）
+                        sysUserService.save(userEntity);
+                        successLines++;
+                    } catch (Exception e) {
+                        errorLines++;
+                        String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+                        if (message.contains(CommonConstant.SQL_INDEX_UNIQ_SYS_USER_USERNAME)) {
+                            errorMessage.add("第 " + lineNumber + " 行：用户名已经存在，忽略导入。");
+                        } else if (message.contains(CommonConstant.SQL_INDEX_UNIQ_SYS_USER_WORK_NO)) {
+                            errorMessage.add("第 " + lineNumber + " 行：工号已经存在，忽略导入。");
+                        } else if (message.contains(CommonConstant.SQL_INDEX_UNIQ_SYS_USER_PHONE)) {
+                            errorMessage.add("第 " + lineNumber + " 行：手机号已经存在，忽略导入。");
+                        } else if (message.contains(CommonConstant.SQL_INDEX_UNIQ_SYS_USER_EMAIL)) {
+                            errorMessage.add("第 " + lineNumber + " 行：电子邮件已经存在，忽略导入。");
+                        } else if (message.contains(CommonConstant.SQL_INDEX_UNIQ_SYS_USER)) {
+                            errorMessage.add("第 " + lineNumber + " 行：违反表唯一性约束。");
+                        } else {
+                            errorMessage.add("第 " + lineNumber + " 行：未知错误，忽略导入");
+                            log.error(e.getMessage(), e);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                errorMessage.add("发生异常：" + e.getMessage());
+                log.error(e.getMessage(), e);
+            } finally {
+                try {
+                    file.getInputStream().close();
+                } catch (IOException e) {
+                    log.error(e.getMessage(), e);
+                }
+            }
+        }
+        return ImportExcelUtil.imporReturnRes(errorLines, successLines, errorMessage);
     }
    
     /**

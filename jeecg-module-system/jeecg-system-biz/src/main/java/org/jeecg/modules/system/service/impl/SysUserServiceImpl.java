@@ -58,11 +58,9 @@ import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -787,6 +785,21 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveUser(SysUser user, String selectedRoles, String selectedDeparts, String relTenantIds) {
+		// 唯一性校验：卡号、管理员密码不可重复
+		if (oConvertUtils.isNotEmpty(user.getCardNumber())) {
+			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+					.eq(SysUser::getCardNumber, user.getCardNumber()));
+			if (cnt != null && cnt > 0) {
+				throw new JeecgBootException("卡号已存在，请更换后再保存！");
+			}
+		}
+		if (oConvertUtils.isNotEmpty(user.getAdminPassword())) {
+			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+					.eq(SysUser::getAdminPassword, user.getAdminPassword()));
+			if (cnt != null && cnt > 0) {
+				throw new JeecgBootException("管理员密码已被占用，请更换后再保存！");
+			}
+		}
 		//step.1 保存用户
 		this.save(user);
 		//获取用户保存前台传过来的租户id并添加到租户
@@ -817,6 +830,23 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 	@Transactional(rollbackFor = Exception.class)
 	@CacheEvict(value={CacheConstant.SYS_USERS_CACHE}, allEntries=true)
 	public void editUser(SysUser user, String roles, String departs, String relTenantIds, String updateFromPage) {
+		// 唯一性校验：卡号、管理员密码不可重复（排除当前用户）
+		if (oConvertUtils.isNotEmpty(user.getCardNumber())) {
+			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+					.eq(SysUser::getCardNumber, user.getCardNumber())
+					.ne(SysUser::getId, user.getId()));
+			if (cnt != null && cnt > 0) {
+				throw new JeecgBootException("卡号已存在，无法重复！");
+			}
+		}
+		if (oConvertUtils.isNotEmpty(user.getAdminPassword())) {
+			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+					.eq(SysUser::getAdminPassword, user.getAdminPassword())
+					.ne(SysUser::getId, user.getId()));
+			if (cnt != null && cnt > 0) {
+				throw new JeecgBootException("管理员密码已被占用，无法重复！");
+			}
+		}
 		//获取用户编辑前台传过来的租户id
         this.editUserTenants(user.getId(),relTenantIds);
 		//step.1 修改用户基础信息

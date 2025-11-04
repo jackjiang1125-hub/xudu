@@ -264,6 +264,28 @@ public interface IotDeviceService  {
                               String userPic, String bioPhoto);
 
     /**
+     * 下发人员新增（含权限）命令序列（增强版-带卡号与管理密码）。固定 4 条基础命令：
+     * 1) DATA UPDATE user（人员信息，包含 cardno/password）
+     * 2) DATA UPDATE userauthorize（门禁权限）
+     * 3) DATA UPDATE userpic（人员照片，可为空）
+     * 4) DATA UPDATE biophoto（比对照片，可为空）
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     * @param name 姓名
+     * @param authorizeTimezoneId 授权时区编号
+     * @param authorizeDoorId 授权门位图（1..15，15表示所有门）
+     * @param devId 设备ID（一般取1）
+     * @param userPic 人员图片 URL 或 Base64（可为空）
+     * @param bioPhoto 抠图/比对图片 URL 或 Base64（可为空）
+     * @param cardNumber 人员卡号（十进制或协议要求格式，可为空）
+     * @param adminPassword 人员管理密码（<=6 位，可为空）
+     */
+    void addUserWithAuthorize(String sn, String pin, String name,
+                              Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                              String userPic, String bioPhoto,
+                              String cardNumber, String adminPassword);
+
+    /**
      * 下发人员删除（含权限）命令序列；按协议下发 4 条基础命令：
      * 1) DATA DELETE userauthorize
      * 2) DATA DELETE biophoto

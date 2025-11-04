@@ -133,15 +133,15 @@ public class AccessCommandFactory {
         Objects.requireNonNull(u); Objects.requireNonNull(u.pin, "pin required");
         List<String> kv = new ArrayList<>();
         put(kv, "uid", u.uid);
-        put(kv, "cardno", u.cardno);
+        put(kv, "CardNo", u.cardno);
         put(kv, "Pin", u.pin);
-        put(kv, "password", u.password);
+        put(kv, "Password", u.password);
         put(kv, "Group", u.group);
         put(kv, "StarTtime", u.starttime);
         put(kv, "EndTime", u.endtime);
         put(kv, "Name", u.name);
         put(kv, "Privilege", u.privilege);
-        put(kv, "disable", u.disable);
+        put(kv, "Disable", u.disable);
         put(kv, "verify", u.verify);
         return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "user" + SP + String.join(HT, kv);
     }

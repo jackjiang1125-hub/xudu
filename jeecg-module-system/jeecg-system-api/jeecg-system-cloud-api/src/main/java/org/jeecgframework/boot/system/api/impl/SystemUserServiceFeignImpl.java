@@ -43,7 +43,9 @@ public class SystemUserServiceFeignImpl implements SystemUserService {
                     .setOrgCode(jo.getString("orgCode"))
                     .setWorkNo(jo.getString("workNo"))
                     .setAvatar(jo.getString("avatar"))
-                    .setFaceCutout(jo.getString("faceCutout"));
+                    .setFaceCutout(jo.getString("faceCutout"))
+                    .setCardNumber(jo.getString("cardNumber"))
+                    .setAdminPassword(jo.getString("adminPassword"));
             result.add(vo);
         }
         return result;
@@ -70,7 +72,9 @@ public class SystemUserServiceFeignImpl implements SystemUserService {
                     .setOrgCode(jo.getString("orgCode"))
                     .setWorkNo(jo.getString("workNo"))
                     .setAvatar(jo.getString("avatar"))
-                    .setFaceCutout(jo.getString("faceCutout"));
+                    .setFaceCutout(jo.getString("faceCutout"))
+                    .setCardNumber(jo.getString("cardNumber"))
+                    .setAdminPassword(jo.getString("adminPassword"));
             result.add(vo);
         }
         return result;

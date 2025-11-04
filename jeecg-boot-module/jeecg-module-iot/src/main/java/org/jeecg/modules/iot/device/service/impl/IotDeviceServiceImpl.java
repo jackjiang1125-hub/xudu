@@ -534,12 +534,68 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         ua.devId = (devId == null ? 1 : devId);
 
         // 图片/抠图（均允许为空，保持 4 条命令序列一致）
-        AccessCommandFactory.CmdUserPic userPicCmd = buildUserPicCmd(pin, userPic);
-        AccessCommandFactory.CmdBioPhoto bioPhotoCmd = buildBioPhotoCmd(pin, bioPhoto);
+        AccessCommandFactory.CmdUserPic userPicCmd = null;
+        if (StringUtils.isNotBlank(userPic)) {
+            userPicCmd = buildUserPicCmd(pin, userPic);
+        }
+        AccessCommandFactory.CmdBioPhoto bioPhotoCmd = null;
+        if (StringUtils.isNotBlank(bioPhoto)) {
+            bioPhotoCmd = buildBioPhotoCmd(pin, bioPhoto);
+        }
 
         List<String> cmds = AccessCommandFactory.buildAddUserBundle(startCmdId, user, java.util.List.of(ua), userPicCmd, bioPhotoCmd);
         log.info("[IoT] 下发人员新增(4条) sn={}, pin={}, tzId={}, doorId={}, devId={}, userPicFormat={}, bioPhotoFormat={}, hasUserPic={}, hasBioPhoto={}",
                 sn, pin, tzId, doorId, ua.devId,
+                (StringUtils.isBlank(userPic) ? "placeholder" : (isDataUri(userPic) ? "base64" : (isLikelyUrl(userPic) ? "url" : (isLikelyBase64(userPic) ? "base64" : "url")))),
+                (StringUtils.isBlank(bioPhoto) ? "placeholder" : (isDataUri(bioPhoto) ? "base64" : (isLikelyUrl(bioPhoto) ? "url" : (isLikelyBase64(bioPhoto) ? "base64" : "url")))),
+                StringUtils.isNotBlank(userPic), StringUtils.isNotBlank(bioPhoto));
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    /**
+     * 增强版：支持卡号与管理密码
+     */
+    @Override
+    public void addUserWithAuthorize(String sn, String pin, String name,
+                                     Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                                     String userPic, String bioPhoto,
+                                     String cardNumber, String adminPassword) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int startCmdId = (int) commandSeqService.nextSeqRange(sn, 4);
+
+        // 用户信息（按协议字段）
+        AccessCommandFactory.CmdUser user = new AccessCommandFactory.CmdUser(pin);
+        user.name = name;
+        user.group = "0";
+        user.privilege = "0";
+        user.disable = "0";
+        user.starttime = "0";
+        user.endtime = "0";
+        user.cardno = StringUtils.defaultString(StringUtils.trimToNull(cardNumber), "");
+        user.password = StringUtils.defaultString(StringUtils.trimToNull(adminPassword), "");
+
+        // 门禁授权
+        Integer tzId = authorizeTimezoneId == null ? 1 : authorizeTimezoneId;
+        Integer doorId = authorizeDoorId == null ? 1 : authorizeDoorId;
+        AccessCommandFactory.CmdUserAuthorize ua = new AccessCommandFactory.CmdUserAuthorize(pin, tzId, doorId);
+        ua.devId = (devId == null ? 1 : devId);
+
+        // 图片/抠图
+        AccessCommandFactory.CmdUserPic userPicCmd = null;
+        if (StringUtils.isNotBlank(userPic)) {
+            userPicCmd = buildUserPicCmd(pin, userPic);
+        }
+        AccessCommandFactory.CmdBioPhoto bioPhotoCmd = null;
+        if (StringUtils.isNotBlank(bioPhoto)) {
+            bioPhotoCmd = buildBioPhotoCmd(pin, bioPhoto);
+        }
+
+        List<String> cmds = AccessCommandFactory.buildAddUserBundle(startCmdId, user, java.util.List.of(ua), userPicCmd, bioPhotoCmd);
+        log.info("[IoT] 下发人员新增(4条-含卡/密) sn={}, pin={}, tzId={}, doorId={}, devId={}, cardno={}, hasPwd={}, userPicFormat={}, bioPhotoFormat={}, hasUserPic={}, hasBioPhoto={}",
+                sn, pin, tzId, doorId, ua.devId,
+                user.cardno, StringUtils.isNotBlank(user.password),
                 (StringUtils.isBlank(userPic) ? "placeholder" : (isDataUri(userPic) ? "base64" : (isLikelyUrl(userPic) ? "url" : (isLikelyBase64(userPic) ? "base64" : "url")))),
                 (StringUtils.isBlank(bioPhoto) ? "placeholder" : (isDataUri(bioPhoto) ? "base64" : (isLikelyUrl(bioPhoto) ? "url" : (isLikelyBase64(bioPhoto) ? "base64" : "url")))),
                 StringUtils.isNotBlank(userPic), StringUtils.isNotBlank(bioPhoto));

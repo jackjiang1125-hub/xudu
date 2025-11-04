@@ -157,6 +157,20 @@ public class SysUser implements Serializable {
     private String telephone;
 
     /**
+     * 卡号（业务用户可选）
+     */
+    @Excel(name = "卡号", width = 15)
+    @TableField("card_number")
+    private String cardNumber;
+
+    /**
+     * 管理员密码（业务用户可选，仅写入，不回显）
+     */
+    // @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @TableField("admin_password")
+    private String adminPassword;
+
+    /**
      * 创建人
      */
     private String createBy;
