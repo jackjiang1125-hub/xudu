@@ -30,6 +30,17 @@ public final class FaceImageUtil {
 
     private static final Logger log = LoggerFactory.getLogger(FaceImageUtil.class);
 
+    /**
+     * 解析上传根路径（保持与配置一致，不做盘符猜测）
+     * - 返回原值或去除首尾空白；后续由 Paths.get(uploadRoot, ...) 负责拼接与创建目录
+     * - 若配置为 Unix 风格（如 "/opt/upFiles"）且运行在 Windows，建议在配置层改为绝对盘符路径
+     */
+    public static String resolveUploadRoot(String configured) {
+        if (configured == null) return null;
+        String root = configured.trim();
+        return root.isEmpty() ? configured : root;
+    }
+
     public static class FaceTargetPath {
         public final String physicalPath;
         public final String dbPath;
@@ -124,6 +135,38 @@ public final class FaceImageUtil {
         Path p = Paths.get(dbPath);
         if (p.isAbsolute()) return p.toString();
         return Paths.get(uploadRoot, dbPath).toString();
+    }
+
+    /**
+     * 解析 avatar 到本地物理路径（不做压缩），支持绝对路径或基于 uploadRoot 的相对路径
+     * 返回存在的本地文件路径，不存在或异常时返回 null
+     */
+    public static String resolveAvatarToLocalPath(String uploadRoot, String avatar) {
+        try {
+            if (avatar == null || avatar.isBlank()) {
+                return null;
+            }
+            Path p = Paths.get(avatar);
+            Path local = p.isAbsolute() ? p : Paths.get(uploadRoot, avatar);
+            if (Files.exists(local) && Files.isRegularFile(local)) {
+                return local.toString();
+            }
+            log.warn("[FaceImageUtil] resolveAvatarToLocalPath not found: avatar={}, resolved={}", avatar, local.toString());
+            return null;
+        } catch (Exception e) {
+            log.warn("[FaceImageUtil] resolveAvatarToLocalPath error: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 构建抠图输出路径（与 buildFacecropTargetPath 相同），但文件后缀统一改为 .jpg
+     */
+    public static FaceTargetPath buildFacecropTargetPathAsJpg(String uploadRoot, String username) {
+        FaceTargetPath tp = buildFacecropTargetPath(uploadRoot, username);
+        String phys = tp.physicalPath.replaceFirst("(?i)\\.png$", ".jpg");
+        String db = tp.dbPath.replaceFirst("(?i)\\.png$", ".jpg");
+        return new FaceTargetPath(phys, db);
     }
 
     /**

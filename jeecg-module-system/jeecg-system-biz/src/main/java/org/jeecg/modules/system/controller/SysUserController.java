@@ -18,7 +18,6 @@ import org.jeecg.common.aspect.annotation.PermissionData;
 import org.jeecg.common.config.TenantContext;
 import org.jeecg.common.constant.CommonConstant;
 import org.jeecg.common.constant.SymbolConstant;
-import org.jeecg.common.modules.redis.client.JeecgRedisClient;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.util.JwtUtil;
 import org.jeecg.common.system.vo.LoginUser;
@@ -47,12 +46,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -93,6 +95,9 @@ public class SysUserController {
 
     @Value("${jeecg.path.upload}")
     private String upLoadPath;
+    
+    @Value("${jeecg.uploadType}")
+    private String uploadType;
 
     @Autowired
     private BaseCommonService baseCommonService;
@@ -109,48 +114,7 @@ public class SysUserController {
     @Autowired
     private IFaceCropService faceCropService;
 
-    /**
-     * 解析 avatar（支持 http/https、本地相对/绝对路径、data:image Base64）为本地物理路径
-     * 返回可读取的本地文件路径；解析失败返回 null
-     */
-    private String resolveAvatarToLocalPath(String avatar) {
-        // 解析头像到本地物理路径（不再进行压缩）
-        try {
-            if (avatar == null || avatar.isBlank()) {
-                return null;
-            }
-            Path p = Paths.get(avatar);
-            Path local = p.isAbsolute() ? p : Paths.get(upLoadPath, avatar);
-            if (Files.exists(local) && Files.isRegularFile(local)) {
-                return local.toString();
-            }
-            log.warn("解析头像失败，本地文件不存在: avatar={}, resolved={}", avatar, local.toString());
-            return null;
-        } catch (Exception e) {
-            log.warn("解析头像异常，忽略并继续: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * 构建抠图输出目标路径（物理 + DB相对路径）
-     */
-    private TargetPath buildFacecropTargetPath(String username) {
-        FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPath(upLoadPath, username);
-        // 仅改后缀为 .jpg，压缩在 facecrop 模块内部完成
-        String phys = tp.physicalPath.replaceFirst("(?i)\\.png$", ".jpg");
-        String db = tp.dbPath.replaceFirst("(?i)\\.png$", ".jpg");
-        return new TargetPath(phys, db);
-    }
-
-    private static class TargetPath {
-        final String physicalPath;
-        final String dbPath;
-        TargetPath(String physicalPath, String dbPath) {
-            this.physicalPath = physicalPath;
-            this.dbPath = dbPath;
-        }
-    }
+    // 头像与抠图路径工具迁移至 FaceImageUtil
     
     /**
      * 获取租户下用户数据（支持租户隔离）
@@ -228,17 +192,18 @@ public class SysUserController {
             // 头像压缩处理（avatar 存在时）：压缩原图并保存到正式目录
             try {
                 if (oConvertUtils.isNotEmpty(user.getAvatar())) {
+                    String uploadRoot = FaceImageUtil.resolveUploadRoot(upLoadPath);
                     // 压缩并保存头像到正式目录，更新avatar字段为压缩后的相对路径
                     String compressedAvatarPath = FaceImageUtil.compressAndSaveAvatar(
-                            user.getAvatar(), upLoadPath, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
+                            user.getAvatar(), uploadRoot, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
                     if (compressedAvatarPath != null) {
                         user.setAvatar(compressedAvatarPath);
                         log.info("用户添加-头像压缩保存成功: username={}, dbPath={}", user.getUsername(), compressedAvatarPath);
                         
                         // 使用压缩后的头像进行人脸抠图
-                        String srcPath = resolveAvatarToLocalPath(compressedAvatarPath);
+                        String srcPath = FaceImageUtil.resolveAvatarToLocalPath(uploadRoot, compressedAvatarPath);
                         if (srcPath != null) {
-                            TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                            FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPathAsJpg(uploadRoot, user.getUsername());
                             FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
                             if (resp != null && resp.isSuccess()) {
                                 user.setFaceCutout(tp.dbPath);
@@ -299,17 +264,18 @@ public class SysUserController {
                     String oldAvatar = sysUser.getAvatar();
                     boolean avatarChanged = oConvertUtils.isNotEmpty(newAvatar) && !org.apache.commons.lang.StringUtils.equals(newAvatar, oldAvatar);
                     if (avatarChanged) {
+                        String uploadRoot = FaceImageUtil.resolveUploadRoot(upLoadPath);
                         // 压缩并保存头像到正式目录，更新avatar字段为压缩后的相对路径
                         String compressedAvatarPath = FaceImageUtil.compressAndSaveAvatar(
-                                newAvatar, upLoadPath, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
+                                newAvatar, uploadRoot, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
                         if (compressedAvatarPath != null) {
                             user.setAvatar(compressedAvatarPath);
                             log.info("用户编辑-头像压缩保存成功: username={}, dbPath={}", user.getUsername(), compressedAvatarPath);
                             
                             // 使用压缩后的头像进行人脸抠图
-                            String srcPath = resolveAvatarToLocalPath(compressedAvatarPath);
+                            String srcPath = FaceImageUtil.resolveAvatarToLocalPath(uploadRoot, compressedAvatarPath);
                             if (srcPath != null) {
-                                TargetPath tp = buildFacecropTargetPath(user.getUsername());
+                                FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPathAsJpg(uploadRoot, user.getUsername());
                                 FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
                                 if (resp != null && resp.isSuccess()) {
                                     user.setFaceCutout(tp.dbPath);
@@ -363,7 +329,7 @@ public class SysUserController {
         // 删除关联的抠图文件（若存在），不影响主流程
         try {
             if (oConvertUtils.isNotEmpty(facePath)) {
-                String physical = FaceImageUtil.resolveDbPathToPhysical(upLoadPath, facePath);
+                String physical = FaceImageUtil.resolveDbPathToPhysical(FaceImageUtil.resolveUploadRoot(upLoadPath), facePath);
                 Files.deleteIfExists(Paths.get(physical));
             }
         } catch (Exception e) {
@@ -402,7 +368,7 @@ public class SysUserController {
         // 批量删除抠图文件，不影响主流程
         for (String facePath : facePaths) {
             try {
-                String physical = FaceImageUtil.resolveDbPathToPhysical(upLoadPath, facePath);
+                String physical = FaceImageUtil.resolveDbPathToPhysical(FaceImageUtil.resolveUploadRoot(upLoadPath), facePath);
                 Files.deleteIfExists(Paths.get(physical));
             } catch (Exception e) {
                 log.warn("批量删除用户-清理抠图文件失败: path={}, err={}", facePath, e.getMessage());
@@ -1531,9 +1497,9 @@ public class SysUserController {
                 if(StringUtils.isNotBlank(avatar)){
                     sysUser.setAvatar(avatar);
                     try {
-                        String srcPath = resolveAvatarToLocalPath(avatar);
+                        String srcPath = FaceImageUtil.resolveAvatarToLocalPath(upLoadPath, avatar);
                         if (srcPath != null) {
-                            TargetPath tp = buildFacecropTargetPath(sysUser.getUsername());
+                            FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPathAsJpg(upLoadPath, sysUser.getUsername());
                             FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
                             if (resp != null && resp.isSuccess()) {
                                 sysUser.setFaceCutout(tp.dbPath);
@@ -2119,7 +2085,11 @@ public class SysUserController {
                         userEntity.setCardNumber(vo.getCardNumber());
                         userEntity.setAdminPassword(vo.getAdminPassword());
                         userEntity.setUserType(2); // 业务用户
-                        // 设置登录密码并加盐加密（为空则默认123456）
+                        // 设置初始化一些参数
+                        userEntity.setDelFlag(0);
+                        userEntity.setActivitiSync(1);
+                        userEntity.setUserIdentity(1);
+
                         sysUserService.save(userEntity);
                         successLines++;
                     } catch (Exception e) {
@@ -2154,7 +2124,124 @@ public class SysUserController {
         }
         return ImportExcelUtil.imporReturnRes(errorLines, successLines, errorMessage);
     }
-   
+
+    /**
+     * 业务用户照片导入（批量上传的单文件接口）
+     * - 前端使用 UploadModal，按“人员编号”为文件名（不含扩展名）匹配 sys_user.work_no
+     * - 成功返回 UploadApiResult 结构：{ code, message, url }
+     * - 失败返回 4xx/5xx HTTP 状态以便前端标红
+     */
+    @PostMapping("/importBizPhoto")
+    public Object importBizPhoto(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
+        Map<String, Object> body = new HashMap<>();
+        try {
+            if (file == null || file.isEmpty()) {
+                body.put("code", 400);
+                body.put("message", "未选择文件或文件为空");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+            }
+
+            String origName = file.getOriginalFilename();
+            String baseName = origName == null ? null : origName.replaceAll("\\\\", "/");
+            if (baseName != null && baseName.contains("/")) {
+                baseName = baseName.substring(baseName.lastIndexOf('/') + 1);
+            }
+            if (baseName == null || baseName.isBlank()) {
+                body.put("code", 400);
+                body.put("message", "文件名无效");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+            }
+            int dot = baseName.lastIndexOf('.');
+            String workNoKey = (dot > 0) ? baseName.substring(0, dot) : baseName;
+            workNoKey = workNoKey.trim();
+            if (workNoKey.isEmpty()) {
+                body.put("code", 400);
+                body.put("message", "文件名无效：缺少人员编号");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+            }
+
+            // 按工号匹配业务用户
+            LambdaQueryWrapper<SysUser> qw = new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getWorkNo, workNoKey)
+                    .eq(SysUser::getDelFlag, 0)
+                    .last("limit 1");
+            SysUser user = sysUserService.getOne(qw);
+            if (user == null) {
+                body.put("code", 404);
+                body.put("message", "未找到人员编号【" + workNoKey + "】对应的业务用户");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+            }
+
+            // 解析上传根路径（用于最终存储）
+            String uploadRoot = FaceImageUtil.resolveUploadRoot(upLoadPath);
+
+            // 参照通用上传，先将原始文件保存到统一biz目录
+            String ym = new java.text.SimpleDateFormat("yyyyMM").format(new Date());
+            String bizPath = java.nio.file.Paths.get("user", "bizPhotoImport", ym).toString().replace('\\','/');
+            String savedPath;
+            if (CommonConstant.UPLOAD_TYPE_LOCAL.equals(uploadType)) {
+                savedPath = CommonUtils.uploadLocal(file, bizPath, upLoadPath);
+            } else {
+                savedPath = CommonUtils.upload(file, bizPath, uploadType);
+            }
+            if (oConvertUtils.isEmpty(savedPath)) {
+                body.put("code", 500);
+                body.put("message", "原始文件保存失败");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+            }
+
+            // 压缩并保存到正式目录（返回DB相对路径）
+            String compressedDbPath = FaceImageUtil.compressAndSaveAvatar(savedPath, uploadRoot, user.getUsername(), MAX_IMAGE_BYTES, 30, 70);
+            if (oConvertUtils.isEmpty(compressedDbPath)) {
+                body.put("code", 500);
+                body.put("message", "图片压缩失败，文件可能过大或格式不支持");
+                body.put("url", "");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+            }
+
+            // 人脸抠图（尽力而为，不影响主流程）
+            String faceDbPath = null;
+            try {
+                String srcPath = FaceImageUtil.resolveAvatarToLocalPath(uploadRoot, compressedDbPath);
+                FaceImageUtil.FaceTargetPath tp = FaceImageUtil.buildFacecropTargetPathAsJpg(uploadRoot, user.getUsername());
+                FaceCropResponse resp = faceCropService.cropImage(srcPath, tp.physicalPath);
+                if (resp != null && resp.isSuccess()) {
+                    faceDbPath = tp.dbPath;
+                } else {
+                    log.warn("业务照片导入-人脸抠图失败: workNo={}, code={}, msg={}", workNoKey, (resp==null?null:resp.getCode()), (resp==null?null:resp.getMessage()));
+                }
+            } catch (Throwable e) {
+                log.warn("业务照片导入-人脸抠图异常: workNo={}, err={}", workNoKey, e.getMessage());
+            }
+
+            // 更新用户头像/抠图
+            SysUser update = new SysUser();
+            update.setId(user.getId());
+            update.setAvatar(compressedDbPath);
+            if (oConvertUtils.isNotEmpty(faceDbPath)) update.setFaceCutout(faceDbPath);
+            update.setUpdateTime(new Date());
+            sysUserService.updateById(update);
+
+            // 原始文件保留以便审计/回溯，若需节省空间可改为在本地上传类型下删除 savedPath 对应物理文件
+
+            body.put("code", 200);
+            body.put("message", "已更新用户【" + workNoKey + "】照片" + (faceDbPath != null ? "并生成抠图" : ""));
+            body.put("url", compressedDbPath);
+            return body;
+        } catch (Exception e) {
+            log.error("业务照片导入异常", e);
+            body.put("code", 500);
+            body.put("message", "服务器异常：" + e.getMessage());
+            body.put("url", "");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        }
+    }
+    
     /**
      * 更改手机号（敲敲云个人设置专用）
      *
