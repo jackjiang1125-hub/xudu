@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.lang3.StringUtils;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * REST endpoints for inspecting device command queues.
@@ -36,8 +39,19 @@ public class IotDeviceCommandController extends JeecgController<IotDeviceCommand
                                                 @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
                                                 @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
                                                 HttpServletRequest req) {
+        // 使用 QueryGenerator 处理所有普通查询（包含 commandContent 的 * 模式自动识别为 LIKE）
         QueryWrapper<IotDeviceCommand> queryWrapper = QueryGenerator.initQueryWrapper(command, req.getParameterMap());
-        queryWrapper.orderByDesc("create_time");
+        // 时间范围：默认查询当天（按入队时间）
+        String begin = req.getParameter("enqueueTime_begin");
+        String end = req.getParameter("enqueueTime_end");
+        if (StringUtils.isBlank(begin) && StringUtils.isBlank(end)) {
+            LocalDate today = LocalDate.now();
+            LocalDateTime startOfDay = today.atStartOfDay();
+            LocalDateTime endOfDay = today.atTime(23, 59, 59);
+            queryWrapper.ge("enqueue_time", startOfDay);
+            queryWrapper.le("enqueue_time", endOfDay);
+        }
+        queryWrapper.orderByDesc("command_code");
         Page<IotDeviceCommand> page = new Page<>(pageNo, pageSize);
         IPage<IotDeviceCommand> pageList = iotDeviceCommandService.page(page, queryWrapper);
         return Result.OK(pageList);

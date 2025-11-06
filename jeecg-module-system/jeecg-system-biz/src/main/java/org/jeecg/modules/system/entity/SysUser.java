@@ -164,11 +164,11 @@ public class SysUser implements Serializable {
     private String cardNumber;
 
     /**
-     * 管理员密码（业务用户可选，仅写入，不回显）
+     * 验证密码（业务用户可选，仅写入，不回显）
      */
     // @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @TableField("admin_password")
-    private String adminPassword;
+    @TableField("verify_password")
+    private String verifyPassword;
 
     /**
      * 创建人
@@ -232,6 +232,59 @@ public class SysUser implements Serializable {
      * 流程状态
      */
     private String bpmStatus;
+
+    /**
+     * 超级用户(0否,1是)
+     */
+    @Excel(name = "超级用户(0否,1是)", width = 15)
+    @TableField("super_user")
+    private Integer superUser;
+
+    /**
+     * 设备操作权限(1一般人员,2管理员,3操作员)
+     */
+    @Excel(name = "设备操作权限(1一般人员,2管理员,3操作员)", width = 20)
+    @TableField("device_op_perm")
+    private Integer deviceOpPerm;
+
+    /**
+     * 延长通行(0否,1是)
+     */
+    @Excel(name = "延长通行(0否,1是)", width = 15)
+    @TableField("extend_access")
+    private Boolean extendAccess;
+
+    /**
+     * 禁止名单(0否,1是)
+     */
+    @Excel(name = "禁止名单(0否,1是)", width = 15)
+    @TableField("prohibited_roster")
+    private Boolean prohibitedRoster;
+
+    /**
+     * 启用有效时间(0否,1是)
+     */
+    @Excel(name = "启用有效时间(0否,1是)", width = 18)
+    @TableField("valid_time_enabled")
+    private Boolean validTimeEnabled;
+
+    /**
+     * 有效开始时间
+     */
+    @Excel(name = "有效开始时间", width = 20, format = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField("valid_start_time")
+    private Date validStartTime;
+
+    /**
+     * 有效结束时间
+     */
+    @Excel(name = "有效结束时间", width = 20, format = "yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+    @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField("valid_end_time")
+    private Date validEndTime;
 
     /**
      * 是否已经绑定第三方

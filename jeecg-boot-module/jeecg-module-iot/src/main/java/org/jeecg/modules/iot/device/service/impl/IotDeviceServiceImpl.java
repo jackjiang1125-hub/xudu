@@ -40,6 +40,9 @@ import java.util.List;
 import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
 import org.jeecg.modules.iot.device.seq.CommandSeqService;
 import org.jeecg.modules.iot.utils.zkteco.AccessCommandFactory;
+
+import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import org.jeecg.modules.iot.utils.zkteco.OptionsCommandFactory;
 
@@ -559,7 +562,7 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
     public void addUserWithAuthorize(String sn, String pin, String name,
                                      Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
                                      String userPic, String bioPhoto,
-                                     String cardNumber, String adminPassword) {
+                                     String cardNumber, String verifyPassword) {
         if (StringUtils.isAnyBlank(sn, pin)) {
             return;
         }
@@ -574,7 +577,7 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         user.starttime = "0";
         user.endtime = "0";
         user.cardno = StringUtils.defaultString(StringUtils.trimToNull(cardNumber), "");
-        user.password = StringUtils.defaultString(StringUtils.trimToNull(adminPassword), "");
+        user.password = StringUtils.defaultString(StringUtils.trimToNull(verifyPassword), "");
 
         // 门禁授权
         Integer tzId = authorizeTimezoneId == null ? 1 : authorizeTimezoneId;
@@ -596,6 +599,83 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         log.info("[IoT] 下发人员新增(4条-含卡/密) sn={}, pin={}, tzId={}, doorId={}, devId={}, cardno={}, hasPwd={}, userPicFormat={}, bioPhotoFormat={}, hasUserPic={}, hasBioPhoto={}",
                 sn, pin, tzId, doorId, ua.devId,
                 user.cardno, StringUtils.isNotBlank(user.password),
+                (StringUtils.isBlank(userPic) ? "placeholder" : (isDataUri(userPic) ? "base64" : (isLikelyUrl(userPic) ? "url" : (isLikelyBase64(userPic) ? "base64" : "url")))),
+                (StringUtils.isBlank(bioPhoto) ? "placeholder" : (isDataUri(bioPhoto) ? "base64" : (isLikelyUrl(bioPhoto) ? "url" : (isLikelyBase64(bioPhoto) ? "base64" : "url")))),
+                StringUtils.isNotBlank(userPic), StringUtils.isNotBlank(bioPhoto));
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    /**
+     * 增强版：支持业务字段（超级用户、设备操作权限、扩展权限、有效期）。
+     */
+    @Override
+    public void addUserWithAuthorize(String sn, String pin, String name,
+                                     Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                                     String userPic, String bioPhoto,
+                                     String cardNumber, String verifyPassword,
+                                     Integer superUser, Integer deviceOpPerm,
+                                     Boolean extendAccess, Boolean prohibitedRoster, Boolean validTimeEnabled,
+                                     java.util.Date validStartTime, java.util.Date validEndTime) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int startCmdId = (int) commandSeqService.nextSeqRange(sn, 4);
+
+        // 用户信息（按协议字段）
+        AccessCommandFactory.CmdUser user = new AccessCommandFactory.CmdUser(pin);
+        user.name = name;
+        user.group = "0";
+        // privilege 映射：deviceOpPerm（预留）
+        String privilege = "0";
+        if (deviceOpPerm != null) {
+            // 设备操作权限(1一般人员,2管理员,3操作员)
+            // 简易映射：14=管理员，2=操作员，0=普通
+            privilege = (deviceOpPerm == 1) ? "0" : (deviceOpPerm == 2 ? "14" : "2");
+        }
+        user.privilege = privilege;
+        user.disable = (Boolean.TRUE.equals(prohibitedRoster) ? "1" : "0"); // 禁止名单映射为黑名单
+
+        // 有效期：开启则按纪元秒传入；否则置为 "0"
+        boolean useValidTime = Boolean.TRUE.equals(validTimeEnabled) && validStartTime != null && validEndTime != null;
+
+        String startSec = "0";
+        String endSec = "0";
+        // 如果设备参数DateFmtFunOn的值为1，举例：StartTime=583512660，StartTime由【附录5】算法计算出来
+        // 如果设备参数DateFmtFunOn的值为0，格式为YYYYMMDD
+        // 值为0，表示该用户无开始时间限制
+
+        startSec = useValidTime ? new SimpleDateFormat("yyyyMMdd").format(validStartTime) : "0";
+        endSec = useValidTime ? new SimpleDateFormat("yyyyMMdd").format(validEndTime) : "0";
+        ;
+        user.starttime = startSec;
+        user.endtime = endSec;
+
+        user.cardno = StringUtils.defaultString(StringUtils.trimToNull(cardNumber), "");
+        user.password = StringUtils.defaultString(StringUtils.trimToNull(verifyPassword), "");
+
+        // 门禁授权（带有效期）
+        Integer tzId = authorizeTimezoneId == null ? 1 : authorizeTimezoneId;
+        Integer doorId = authorizeDoorId == null ? 1 : authorizeDoorId;
+        AccessCommandFactory.CmdUserAuthorize ua = new AccessCommandFactory.CmdUserAuthorize(pin, tzId, doorId);
+        ua.devId = (devId == null ? 1 : devId);
+        ua.startTime = startSec;
+        ua.endTime = endSec;
+
+        // 图片/抠图
+        AccessCommandFactory.CmdUserPic userPicCmd = null;
+        if (StringUtils.isNotBlank(userPic)) {
+            userPicCmd = buildUserPicCmd(pin, userPic);
+        }
+        AccessCommandFactory.CmdBioPhoto bioPhotoCmd = null;
+        if (StringUtils.isNotBlank(bioPhoto)) {
+            bioPhotoCmd = buildBioPhotoCmd(pin, bioPhoto);
+        }
+
+        java.util.List<String> cmds = AccessCommandFactory.buildAddUserBundle(startCmdId, user, java.util.List.of(ua), userPicCmd, bioPhotoCmd);
+        log.info("[IoT] 下发人员新增(4条-含业务) sn={}, pin={}, tzId={}, doorId={}, devId={}, cardno={}, hasPwd={}, privilege={}, validEnabled={}, startSec={}, endSec={}, userPicFormat={}, bioPhotoFormat={}, hasUserPic={}, hasBioPhoto={}",
+                sn, pin, tzId, doorId, ua.devId,
+                user.cardno, StringUtils.isNotBlank(user.password), user.privilege,
+                useValidTime, startSec, endSec,
                 (StringUtils.isBlank(userPic) ? "placeholder" : (isDataUri(userPic) ? "base64" : (isLikelyUrl(userPic) ? "url" : (isLikelyBase64(userPic) ? "base64" : "url")))),
                 (StringUtils.isBlank(bioPhoto) ? "placeholder" : (isDataUri(bioPhoto) ? "base64" : (isLikelyUrl(bioPhoto) ? "url" : (isLikelyBase64(bioPhoto) ? "base64" : "url")))),
                 StringUtils.isNotBlank(userPic), StringUtils.isNotBlank(bioPhoto));

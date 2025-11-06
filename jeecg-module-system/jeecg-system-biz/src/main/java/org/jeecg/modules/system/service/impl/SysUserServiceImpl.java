@@ -793,9 +793,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 				throw new JeecgBootException("卡号已存在，请更换后再保存！");
 			}
 		}
-		if (oConvertUtils.isNotEmpty(user.getAdminPassword())) {
+		if (oConvertUtils.isNotEmpty(user.getVerifyPassword())) {
 			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
-					.eq(SysUser::getAdminPassword, user.getAdminPassword()));
+					.eq(SysUser::getVerifyPassword, user.getVerifyPassword()));
 			if (cnt != null && cnt > 0) {
 				throw new JeecgBootException("管理员密码已被占用，请更换后再保存！");
 			}
@@ -839,9 +839,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 				throw new JeecgBootException("卡号已存在，无法重复！");
 			}
 		}
-		if (oConvertUtils.isNotEmpty(user.getAdminPassword())) {
+		if (oConvertUtils.isNotEmpty(user.getVerifyPassword())) {
 			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
-					.eq(SysUser::getAdminPassword, user.getAdminPassword())
+					.eq(SysUser::getVerifyPassword, user.getVerifyPassword())
 					.ne(SysUser::getId, user.getId()));
 			if (cnt != null && cnt > 0) {
 				throw new JeecgBootException("管理员密码已被占用，无法重复！");
@@ -900,6 +900,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
 		//step.5 修改职位
 		this.editUserPosition(user.getId(),user.getPost());
+
+		//人员信息修改后通知其他模块
+		
 	}
 
 	@Override

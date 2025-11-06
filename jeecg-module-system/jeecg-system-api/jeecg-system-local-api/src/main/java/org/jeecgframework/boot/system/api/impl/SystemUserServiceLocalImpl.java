@@ -45,7 +45,14 @@ public class SystemUserServiceLocalImpl implements SystemUserService {
                     .setAvatar(jo.getString("avatar"))
                     .setFaceCutout(jo.getString("faceCutout"))
                     .setCardNumber(jo.getString("cardNumber"))
-                    .setAdminPassword(jo.getString("adminPassword"));
+                    .setVerifyPassword(jo.getString("verifyPassword"))
+                    .setSuperUser(jo.getInteger("superUser"))
+                    .setDeviceOpPerm(jo.getInteger("deviceOpPerm"))
+                    .setExtendAccess(jo.getBoolean("extendAccess"))
+                    .setProhibitedRoster(jo.getBoolean("prohibitedRoster"))
+                    .setValidTimeEnabled(jo.getBoolean("validTimeEnabled"))
+                    .setValidStartTime(jo.getDate("validStartTime"))
+                    .setValidEndTime(jo.getDate("validEndTime"));
             result.add(vo);
         }
         return result;
@@ -74,7 +81,14 @@ public class SystemUserServiceLocalImpl implements SystemUserService {
                     .setAvatar(jo.getString("avatar"))
                     .setFaceCutout(jo.getString("faceCutout"))
                     .setCardNumber(jo.getString("cardNumber"))
-                    .setAdminPassword(jo.getString("adminPassword"));
+                    .setVerifyPassword(jo.getString("verifyPassword"))
+                    .setSuperUser(jo.getInteger("superUser"))
+                    .setDeviceOpPerm(jo.getInteger("deviceOpPerm"))
+                    .setExtendAccess(jo.getBoolean("extendAccess"))
+                    .setProhibitedRoster(jo.getBoolean("prohibitedRoster"))
+                    .setValidTimeEnabled(jo.getBoolean("validTimeEnabled"))
+                    .setValidStartTime(jo.getDate("validStartTime"))
+                    .setValidEndTime(jo.getDate("validEndTime"));
             result.add(vo);
         }
         return result;

@@ -82,10 +82,25 @@ public class AccIoTDispatchService {
             String userPic = (u == null) ? null : toBase64OrNull(safe(u.getAvatar()));
             String bioPhoto = (u == null) ? null : toBase64OrNull(safe(u.getFaceCutout()));
             String cardNumber = (u == null) ? null : safe(u.getCardNumber());
-            String adminPassword = (u == null) ? null : safe(u.getAdminPassword());
+            String verifyPassword = (u == null) ? null : safe(u.getVerifyPassword());
+            Integer superUser = (u == null) ? null : u.getSuperUser();
+            Integer deviceOpPerm = (u == null) ? null : u.getDeviceOpPerm();
+            Boolean extendAccess = (u == null) ? null : u.getExtendAccess();
+            Boolean prohibitedRoster = (u == null) ? null : u.getProhibitedRoster();
+            Boolean validTimeEnabled = (u == null) ? null : u.getValidTimeEnabled();
+            java.util.Date validStartTime = (u == null) ? null : u.getValidStartTime();
+            java.util.Date validEndTime = (u == null) ? null : u.getValidEndTime();
             for (String sn : sns) {
                 try {
-                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto, cardNumber, adminPassword);
+                    iotDeviceService.addUserWithAuthorize(
+                        sn, pin, name,
+                        tzId, 1, 1,
+                        userPic, bioPhoto,
+                        cardNumber, verifyPassword,
+                        superUser, deviceOpPerm,
+                        extendAccess, prohibitedRoster, validTimeEnabled,
+                        validStartTime, validEndTime
+                    );
                 } catch (Exception e) {
                     log.warn("[Dispatch] 新增成员下发失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
                 }
@@ -141,10 +156,25 @@ public class AccIoTDispatchService {
             String userPic = (u == null) ? null : toBase64OrNull(safe(u.getAvatar()));
             String bioPhoto = (u == null) ? null : toBase64OrNull(safe(u.getFaceCutout()));
             String cardNumber = (u == null) ? null : safe(u.getCardNumber());
-            String adminPassword = (u == null) ? null : safe(u.getAdminPassword());
+            String verifyPassword = (u == null) ? null : safe(u.getVerifyPassword());
+            Integer superUser = (u == null) ? null : u.getSuperUser();
+            Integer deviceOpPerm = (u == null) ? null : u.getDeviceOpPerm();
+            Boolean extendAccess = (u == null) ? null : u.getExtendAccess();
+            Boolean prohibitedRoster = (u == null) ? null : u.getProhibitedRoster();
+            Boolean validTimeEnabled = (u == null) ? null : u.getValidTimeEnabled();
+            java.util.Date validStartTime = (u == null) ? null : u.getValidStartTime();
+            java.util.Date validEndTime = (u == null) ? null : u.getValidEndTime();
             for (String sn : sns) {
                 try {
-                    iotDeviceService.addUserWithAuthorize(sn, pin, name, tzId, 1, 1, userPic, bioPhoto, cardNumber, adminPassword);
+                    iotDeviceService.addUserWithAuthorize(
+                        sn, pin, name,
+                        tzId, 1, 1,
+                        userPic, bioPhoto,
+                        cardNumber, verifyPassword,
+                        superUser, deviceOpPerm,
+                        extendAccess, prohibitedRoster, validTimeEnabled,
+                        validStartTime, validEndTime
+                    );
                 } catch (Exception e) {
                     log.warn("[Dispatch] 设备新增同步成员失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
                 }

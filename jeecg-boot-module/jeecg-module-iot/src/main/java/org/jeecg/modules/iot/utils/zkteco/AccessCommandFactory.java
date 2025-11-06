@@ -154,8 +154,8 @@ public class AccessCommandFactory {
         put(kv, "AuthorizeTimezoneId", a.authorizeTimezoneId);
         put(kv, "AuthorizeDoorId", a.authorizeDoorId);
    //     put(kv, "DevID", a.devId);
-        put(kv, "StartTime", a.startTime);
-        put(kv, "EndTime", a.endTime);
+        // put(kv, "StartTime", a.startTime);
+        // put(kv, "EndTime", a.endTime);
         return prefix(cmdId) + "DATA" + SP + "UPDATE" + SP + "userauthorize" + SP + String.join(HT, kv);
     }
 

@@ -6,6 +6,7 @@ import org.jeecgframework.boot.iot.query.IotDeviceQuery;
 import org.jeecgframework.boot.iot.vo.IotDeviceVO;
 
 import java.util.Map;
+import java.util.Date;
 
 public interface IotDeviceService  {
 
@@ -278,12 +279,43 @@ public interface IotDeviceService  {
      * @param userPic 人员图片 URL 或 Base64（可为空）
      * @param bioPhoto 抠图/比对图片 URL 或 Base64（可为空）
      * @param cardNumber 人员卡号（十进制或协议要求格式，可为空）
-     * @param adminPassword 人员管理密码（<=6 位，可为空）
+     * @param verifyPassword 人员管理密码（<=6 位，可为空）
      */
     void addUserWithAuthorize(String sn, String pin, String name,
                               Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
                               String userPic, String bioPhoto,
-                              String cardNumber, String adminPassword);
+                              String cardNumber, String verifyPassword);
+
+    /**
+     * 下发人员新增（含权限）命令序列（增强版-带业务字段）。固定 4 条基础命令：
+     * 1) DATA UPDATE user（人员信息，包含 cardno/password/privilege/有效期）
+     * 2) DATA UPDATE userauthorize（门禁权限，支持有效期）
+     * 3) DATA UPDATE userpic（人员照片，可为空）
+     * 4) DATA UPDATE biophoto（比对照片，可为空）
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     * @param name 姓名
+     * @param authorizeTimezoneId 授权时区编号
+     * @param authorizeDoorId 授权门位图（1..15，15表示所有门）
+     * @param devId 设备ID（一般取1）
+     * @param userPic 人员图片 URL 或 Base64（可为空）
+     * @param bioPhoto 抠图/比对图片 URL 或 Base64（可为空）
+     * @param cardNumber 人员卡号（十进制或协议要求格式，可为空）
+     * @param verifyPassword 人员管理密码（<=6 位，可为空）
+     * @param superUser 超级用户(0/1)
+     * @param deviceOpPerm 设备操作权限（预留映射）
+     * @param extendAccess 扩展权限开关（预留映射）
+     * @param validTimeEnabled 启用有效期
+     * @param validStartTime 有效期开始
+     * @param validEndTime 有效期结束
+     */
+    void addUserWithAuthorize(String sn, String pin, String name,
+                              Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId,
+                              String userPic, String bioPhoto,
+                              String cardNumber, String verifyPassword,
+                              Integer superUser, Integer deviceOpPerm,
+                              Boolean extendAccess, Boolean prohibitedRoster, Boolean validTimeEnabled,
+                              Date validStartTime, Date validEndTime);
 
     /**
      * 下发人员删除（含权限）命令序列；按协议下发 4 条基础命令：

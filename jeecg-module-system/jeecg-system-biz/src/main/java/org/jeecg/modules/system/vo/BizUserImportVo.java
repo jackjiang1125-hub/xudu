@@ -36,6 +36,6 @@ public class BizUserImportVo {
 
     /** 管理员密码（设备管理员口令） */
     @Excel(name = "设备验证密码", width = 20)
-    private String adminPassword;
+    private String verifyPassword;
 
 }

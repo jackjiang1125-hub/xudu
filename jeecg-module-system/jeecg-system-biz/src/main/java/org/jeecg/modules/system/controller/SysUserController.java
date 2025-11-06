@@ -2083,7 +2083,7 @@ public class SysUserController {
                         userEntity.setStatus(1);
                         userEntity.setWorkNo(vo.getWorkNo());
                         userEntity.setCardNumber(vo.getCardNumber());
-                        userEntity.setAdminPassword(vo.getAdminPassword());
+                        userEntity.setVerifyPassword(vo.getVerifyPassword());
                         userEntity.setUserType(2); // 业务用户
                         // 设置初始化一些参数
                         userEntity.setDelFlag(0);
