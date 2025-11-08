@@ -73,6 +73,17 @@ public class AccGroupController extends JeecgController<AccGroup, IAccGroupServi
     }
 
     /**
+     * 编辑权限组（仅基础信息）
+     */
+    @PutMapping("/editNew")
+    @Operation(summary = "编辑权限组（仅基础信息）")
+    public Result<AccGroupVO> editNew(@RequestBody AccGroupVO vo) {
+        String operator = getOperator();
+        AccGroupVO updated = accGroupService.updateBaseInfo(vo, operator);
+        return Result.OK(updated);
+    }
+
+    /**
      * 删除权限组
      */
     @DeleteMapping("/delete")

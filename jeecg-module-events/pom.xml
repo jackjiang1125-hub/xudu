@@ -11,6 +11,15 @@
 
     <artifactId>jeecg-module-events</artifactId>
 
+    <dependencies>
+        <!-- Lombok -->
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+            <optional>true</optional>
+		</dependency>
+    </dependencies>
+
 
 
 </project>

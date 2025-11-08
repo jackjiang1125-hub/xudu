@@ -317,6 +317,8 @@ public interface IotDeviceService  {
                               Boolean extendAccess, Boolean prohibitedRoster, Boolean validTimeEnabled,
                               Date validStartTime, Date validEndTime);
 
+    void addUserAuthorize(String sn, String pin, Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId);
+
     /**
      * 下发人员删除（含权限）命令序列；按协议下发 4 条基础命令：
      * 1) DATA DELETE userauthorize
@@ -327,5 +329,21 @@ public interface IotDeviceService  {
      * @param pin 工号（唯一标识）
      */
     void removeUserAndAuthorize(String sn, String pin);
+
+    /**
+     * 下发删除人员时间规则
+     * @param sn
+     * @param pin
+     */
+    void removeAuthorize(String sn, String pin);
+
+    /**
+     * 下发人员删除照片和抠图权限：
+     * 2) DATA DELETE biophoto
+     * 3) DATA DELETE userpic
+     * @param sn 设备序列号
+     * @param pin 工号（唯一标识）
+     */
+    void removeUserPicAndBioPhoto(String sn, String pin);
 
 }

@@ -13,6 +13,7 @@ import org.jeecg.modules.acc.mapper.AccGroupMapper;
 import org.jeecg.modules.acc.mapper.AccGroupMemberMapper;
 import org.jeecg.modules.acc.mapper.AccTimePeriodMapper;
 import org.jeecgframework.boot.iot.api.IotDeviceService;
+import org.jeecgframework.boot.acc.vo.AccUserLiteVO;
 import org.jeecgframework.boot.system.api.SystemUserService;
 import org.jeecgframework.boot.system.vo.UserLiteVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,55 @@ public class AccIoTDispatchService {
 
     @Value("${jeecg.path.upload:}")
     private String uploadRoot;
+
+    /**
+     * 当权限组绑定的时间规则(periodId)发生变更时，刷新该组在所有设备上的授权：
+     * - 对组内每位成员，先删除其在设备上的授权记录(userauthorize)；
+     * - 再按新的时区ID重新下发人员新增(含授权)的命令序列。
+     */
+    public void refreshGroupAuthorizationAfterPeriodChange(String groupId) {
+        if (groupId == null || groupId.isBlank()) return;
+        List<String> sns = getDeviceSNsByGroupId(groupId);
+        if (sns.isEmpty()) {
+            log.info("[Dispatch] 组无设备，跳过刷新授权 groupId={}", groupId);
+            return;
+        }
+
+        List<String> memberIds = listMemberIdsByGroupId(groupId);
+        if (memberIds.isEmpty()) {
+            log.info("[Dispatch] 组无成员，跳过刷新授权 groupId={}", groupId);
+            return;
+        }
+
+        Integer tzId = resolveAuthorizeTimezoneId(groupId);
+        Map<String, UserLiteVO> userMap = fetchUsersByIds(memberIds);
+
+        int totalOps = 0;
+        for (String memberId : memberIds) {
+            UserLiteVO u = userMap.get(memberId);
+            String username = u == null ? null : safe(u.getUsername());
+            String workNo = u == null ? null : safe(u.getWorkNo());
+            String pin = resolvePin(workNo, username, memberId);
+
+            for (String sn : sns) {
+                try {
+                    // 先删除授权（包含权限项），确保新的时区生效
+                    iotDeviceService.removeAuthorize(sn, pin);
+                } catch (Exception e) {
+                    log.warn("[Dispatch] 刷新授权-删除失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
+                }
+                try {
+                    // 再根据最新时区重新下发人员时间端权限
+                    iotDeviceService.addUserAuthorize(sn, pin, tzId, 1, 1);
+                    totalOps++;
+                } catch (Exception e) {
+                    log.warn("[Dispatch] 刷新授权-下发失败 sn={}, pin={}, err={}", sn, pin, e.getMessage());
+                }
+            }
+        }
+        log.info("[Dispatch] 权限组授权刷新完成 groupId={}, deviceCount={}, memberCount={}, tzId={}, reissued={} ",
+                groupId, sns.size(), memberIds.size(), tzId, totalOps);
+    }
 
     /**
      * 将指定成员新增到组的所有设备：按成员列表为每台设备下发 4 条新增命令。
@@ -236,6 +286,93 @@ public class AccIoTDispatchService {
             }
         }
         log.info("[Dispatch] 设备移除成员(按组集合)下发完成 groups={}, deviceCount={}", groupIds.size(), sns.size());
+    }
+
+    /**
+     * 更新系统用户在所有已授权设备上的基础信息：
+     * - 自动识别用户当前所属的权限组，聚合这些组绑定的设备SN
+     * - 逐设备下发更新：优先不打断授权，仅更新用户信息与头像/抠图
+     * - 若头像与抠图均为空，则先执行“删除人员相关信息”(含照片/比对照/权限)，再重建用户与授权
+     */
+    public void updateUserInfoOnAuthorizedDevices(AccUserLiteVO u) {
+        if (u == null || u.getId() == null || u.getId().isBlank()) return;
+
+        // 1) 找出该用户所属的所有权限组
+        List<AccGroupMember> memberships = accGroupMemberMapper
+            .selectList(new QueryWrapper<AccGroupMember>().eq("member_id", u.getId()));
+        if (memberships == null || memberships.isEmpty()) {
+            log.info("[Dispatch] 用户无任何权限组，跳过下发 userId={}", u.getId());
+            return;
+        }
+
+        // 2) 聚合组→设备SN，并为每个设备选择一个授权时区ID（如发生冲突，保留首个并记录告警）
+        Map<String, Integer> deviceTzMap = new LinkedHashMap<>(); // sn -> tzId
+        for (AccGroupMember gm : memberships) {
+            String gid = gm.getGroupId();
+            if (gid == null || gid.isBlank()) continue;
+            Integer tzId = resolveAuthorizeTimezoneId(gid);
+            List<String> sns = getDeviceSNsByGroupId(gid);
+            for (String sn : sns) {
+                if (sn == null || sn.isBlank()) continue;
+                Integer prev = deviceTzMap.putIfAbsent(sn, tzId);
+                if (prev != null && !prev.equals(tzId)) {
+                    log.warn("[Dispatch] 设备SN关联多个权限组且时区冲突 sn={}, tz(prev)={}, tz(curr)={}，沿用首个", sn, prev, tzId);
+                }
+            }
+        }
+        if (deviceTzMap.isEmpty()) {
+            log.info("[Dispatch] 用户所属权限组下无设备，跳过下发 userId={}", u.getId());
+            return;
+        }
+
+        // 3) 解析统一的 PIN 与用户字段
+        String name = safe(u.getRealname());
+        String username = safe(u.getUsername());
+        String workNo = safe(u.getWorkNo());
+        String pin = resolvePin(workNo, username, u.getId());
+        String userPic = toBase64OrNull(safe(u.getAvatar()));
+        String bioPhoto = toBase64OrNull(safe(u.getFaceCutout()));
+        String cardNumber = safe(u.getCardNumber());
+        String verifyPassword = safe(u.getVerifyPassword());
+        Integer superUser = u.getSuperUser();
+        Integer deviceOpPerm = u.getDeviceOpPerm();
+        Boolean extendAccess = u.getExtendAccess();
+        Boolean prohibitedRoster = u.getProhibitedRoster();
+        Boolean validTimeEnabled = u.getValidTimeEnabled();
+        Date validStartTime = u.getValidStartTime();
+        Date validEndTime = u.getValidEndTime();
+
+        // 4) 按设备执行下发
+        int deviceCount = 0;
+        // 根据需求：若最新用户“没有照片”(avatar为空)，则需要清除设备端的照片与抠图
+        boolean removeBefore = (u.getAvatar() == null || u.getAvatar().trim().isEmpty());
+        for (Map.Entry<String, Integer> e : deviceTzMap.entrySet()) {
+            String sn = e.getKey();
+            Integer tzId = e.getValue() == null ? 1 : e.getValue();
+            try {
+                // 若“没有照片”，则先清除照片/抠图/权限/人员后重建（确保设备端不残留旧图片）
+                if (removeBefore) {
+                    try {
+                        iotDeviceService.removeUserPicAndBioPhoto(sn, pin);
+                    } catch (Exception ex) {
+                        log.warn("[Dispatch] 更新前清除人员信息失败 sn={}, pin={}, err={}", sn, pin, ex.getMessage());
+                    }
+                }
+                iotDeviceService.addUserWithAuthorize(
+                    sn, pin, name,
+                    tzId, 1, 1,
+                    userPic, bioPhoto,
+                    cardNumber, verifyPassword,
+                    superUser, deviceOpPerm,
+                    extendAccess, prohibitedRoster, validTimeEnabled,
+                    validStartTime, validEndTime
+                );
+                deviceCount++;
+            } catch (Exception ex) {
+                log.warn("[Dispatch] 更新用户信息下发失败 sn={}, pin={}, err={}", sn, pin, ex.getMessage());
+            }
+        }
+        log.info("[Dispatch] 用户信息更新下发完成 userId={}, pin={}, devices={}", u.getId(), pin, deviceCount);
     }
 
     /* ===================== 私有辅助 ===================== */

@@ -287,6 +287,15 @@ public class AccessCommandFactory {
         return cmds;
     }
 
+    public static List<String> buildAddUserAuthorizeBundle(int startCmdId, List<CmdUserAuthorize> authList) {
+        List<String> cmds = new ArrayList<>();
+        int id = startCmdId;
+        if (authList != null) {
+            for (CmdUserAuthorize a : authList) cmds.add(buildUpdateUserAuthorize(id++, a));
+        }
+        return cmds;
+    }
+
     /**
      * “伪更新”：先删除后新增（更安全更一致）。
      * 默认删除内容：门禁权限、指纹模板(templatev10 全部)、一体化(biodata：按 type 可选)、比对照片(type=9)、用户照片、扩展用户、

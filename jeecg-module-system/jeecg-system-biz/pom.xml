@@ -69,6 +69,12 @@
 			<artifactId>thumbnailator</artifactId>
 			<version>0.4.14</version>
 		</dependency>
+
+		<!-- 事件模块：用于发布 AccUserUpdatedEvent 解耦 system 与 acc -->
+		<dependency>
+			<groupId>org.jeecgframework.boot</groupId>
+			<artifactId>jeecg-module-events</artifactId>
+		</dependency>
 	</dependencies>
 	
 </project>

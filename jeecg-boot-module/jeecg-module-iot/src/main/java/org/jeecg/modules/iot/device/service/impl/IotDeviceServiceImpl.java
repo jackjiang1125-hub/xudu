@@ -37,7 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.List;
 
-import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
 import org.jeecg.modules.iot.device.seq.CommandSeqService;
 import org.jeecg.modules.iot.utils.zkteco.AccessCommandFactory;
 
@@ -682,6 +681,27 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         iotDeviceCommandService.enqueueCommands(sn, cmds, "");
     }
 
+    @Override
+    public void addUserAuthorize(String sn, String pin, Integer authorizeTimezoneId, Integer authorizeDoorId, Integer devId) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int startCmdId = (int) commandSeqService.nextSeqRange(sn, 1);
+
+        // 门禁授权（带有效期）
+        Integer tzId = authorizeTimezoneId == null ? 1 : authorizeTimezoneId;
+        Integer doorId = authorizeDoorId == null ? 1 : authorizeDoorId;
+        AccessCommandFactory.CmdUserAuthorize ua = new AccessCommandFactory.CmdUserAuthorize(pin, tzId, doorId);
+        ua.devId = (devId == null ? 1 : devId);
+        ua.startTime = null;
+        ua.endTime = null;
+
+        java.util.List<String> cmds = AccessCommandFactory.buildAddUserAuthorizeBundle(startCmdId, java.util.List.of(ua));
+        log.info("[IoT] 下发人员时间端权限 sn={}, pin={}, tzId={}, doorId={}, devId={}, startTime={}, endTime={}",
+                sn, pin, tzId, doorId, ua.devId, ua.startTime, ua.endTime);
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
     /** 根据传入字符串构造用户图片命令对象 */
     private AccessCommandFactory.CmdUserPic buildUserPicCmd(String pin, String pic) {
         if (StringUtils.isBlank(pic)) {
@@ -769,6 +789,32 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         cmds.add(AccessCommandFactory.buildDeleteUserPic(id++, pin));
         cmds.add(AccessCommandFactory.buildDeleteUser(id++, pin));
         log.info("[IoT] 下发人员删除(4条) sn={}, pin={}", sn, pin);
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    @Override
+    public void removeAuthorize(String sn, String pin) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int id = (int) commandSeqService.nextSeqRange(sn, 1);
+        List<String> cmds = new java.util.ArrayList<>();
+        cmds.add(AccessCommandFactory.buildDeleteUserAuthorize(id++, pin));
+        log.info("[IoT] 下发人员删除时间规则(1条) sn={}, pin={}", sn, pin);
+        iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    @Override
+    public void removeUserPicAndBioPhoto(String sn, String pin) {
+        if (StringUtils.isAnyBlank(sn, pin)) {
+            return;
+        }
+        int id = (int) commandSeqService.nextSeqRange(sn, 2);
+        List<String> cmds = new java.util.ArrayList<>();
+        // 人员删除按 2 条命令：biophoto、userpic
+        cmds.add(AccessCommandFactory.buildDeleteBioPhoto(id++, pin, 9));
+        cmds.add(AccessCommandFactory.buildDeleteUserPic(id++, pin));
+        log.info("[IoT] 下发人员删除图片和比对模版(2条) sn={}, pin={}", sn, pin);
         iotDeviceCommandService.enqueueCommands(sn, cmds, "");
     }
 }

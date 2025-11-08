@@ -51,6 +51,9 @@ import org.jeecg.modules.system.vo.lowapp.AppExportUserVo;
 import org.jeecg.modules.system.vo.lowapp.DepartAndUserInfo;
 import org.jeecg.modules.system.vo.lowapp.DepartInfo;
 import org.jeecg.modules.system.vo.lowapp.UpdateDepartInfo;
+import org.jeecg.modules.events.acc.vo.AccUserEventVO;
+import org.jeecg.modules.events.acc.AccUserUpdatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.jeecgframework.poi.excel.ExcelImportUtil;
 import org.jeecgframework.poi.excel.def.NormalExcelConstants;
 import org.jeecgframework.poi.excel.entity.ExportParams;
@@ -128,6 +131,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 	private ISysThirdAccountService sysThirdAccountService;
 	@Autowired
 	private RedisUtil redisUtil;
+
+	@Autowired
+	private ApplicationEventPublisher applicationEventPublisher;
 	
 	@Override
 	public Result<IPage<SysUser>> queryPageList(HttpServletRequest req, QueryWrapper<SysUser> queryWrapper, Integer pageSize, Integer pageNo) {
@@ -830,6 +836,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 	@Transactional(rollbackFor = Exception.class)
 	@CacheEvict(value={CacheConstant.SYS_USERS_CACHE}, allEntries=true)
 	public void editUser(SysUser user, String roles, String departs, String relTenantIds, String updateFromPage) {
+		if (StringUtils.isEmpty(user.getAvatar())) {
+			user.setFaceCutout("");
+		}
 		// 唯一性校验：卡号、管理员密码不可重复（排除当前用户）
 		if (oConvertUtils.isNotEmpty(user.getCardNumber())) {
 			Long cnt = this.baseMapper.selectCount(new LambdaQueryWrapper<SysUser>()
@@ -901,8 +910,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 		//step.5 修改职位
 		this.editUserPosition(user.getId(),user.getPost());
 
-		//人员信息修改后通知其他模块
-		
+        //人员信息修改后发布事件（载荷为 events 本地VO）
+        AccUserEventVO payload = new AccUserEventVO();
+        BeanUtils.copyProperties(this.getById(user.getId()), payload);
+        applicationEventPublisher.publishEvent(new AccUserUpdatedEvent(payload));
 	}
 
 	@Override

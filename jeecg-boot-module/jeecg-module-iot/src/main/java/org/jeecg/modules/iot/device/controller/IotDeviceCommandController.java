@@ -7,11 +7,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.modules.iot.device.entity.IotDeviceCommand;
 import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,5 +58,16 @@ public class IotDeviceCommandController extends JeecgController<IotDeviceCommand
         Page<IotDeviceCommand> page = new Page<>(pageNo, pageSize);
         IPage<IotDeviceCommand> pageList = iotDeviceCommandService.page(page, queryWrapper);
         return Result.OK(pageList);
+    }
+
+    @AutoLog(value = "命令管理-清除全部命令")
+    @Operation(summary = "清除全部命令")
+    @DeleteMapping("/clearAll")
+    public Result<String> clearAll() {
+        boolean removed = iotDeviceCommandService.remove(new QueryWrapper<>());
+        if (removed) {
+            return Result.OK("清除成功");
+        }
+        return Result.OK("无待清除命令或已为空");
     }
 }

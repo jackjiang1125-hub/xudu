@@ -3,7 +3,6 @@ package org.jeecg.modules.acc.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -18,6 +17,7 @@ import org.jeecg.modules.acc.mapper.AccGroupDeviceMapper;
 import org.jeecg.modules.acc.mapper.AccGroupMemberMapper;
 import org.jeecg.modules.acc.service.IAccGroupService;
 import org.jeecg.modules.acc.vo.AccGroupVO;
+import org.jeecg.modules.acc.service.iot.AccIoTDispatchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +44,9 @@ public class AccGroupServiceImpl extends JeecgServiceImpl<AccGroupMapper, AccGro
 
     @Autowired
     private AccTimePeriodMapper timePeriodMapper;
+
+    @Autowired
+    private AccIoTDispatchService accIoTDispatchService;
 
     @Override
     public IPage<AccGroupVO> pageList(String groupName, Integer memberCount, Integer deviceCount, Integer pageNo, Integer pageSize) {
@@ -131,7 +134,15 @@ public class AccGroupServiceImpl extends JeecgServiceImpl<AccGroupMapper, AccGro
         }
         entity.setGroupName(vo.getGroupName());
         entity.setRemark(vo.getRemark());
-        entity.setPeriodId(vo.getPeriodId());
+        // 监听权限组对应的时间规则id是否有变更，如果有变更，update之后需要给权限组对应的所有人员、设备：先执行删除userauthorize，再重新下发
+        String oldPeriodId = entity.getPeriodId();
+        String newPeriodId = vo.getPeriodId();
+        boolean periodChanged = !Objects.equals(
+                oldPeriodId == null ? null : oldPeriodId.trim(),
+                newPeriodId == null ? null : newPeriodId.trim()
+        );
+        entity.setPeriodId(newPeriodId);
+
         this.updateById(entity);
 
         // 覆盖关联
@@ -143,6 +154,45 @@ public class AccGroupServiceImpl extends JeecgServiceImpl<AccGroupMapper, AccGro
         AccGroupVO updated = toVOWithoutDetail(entity);
         updated.setMembers(listMemberIds(entity.getId()));
         updated.setDevices(listDeviceIds(entity.getId()));
+        updated.setMemberCount(countMembers(entity.getId()));
+        updated.setDeviceCount(countDevices(entity.getId()));
+        return updated;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AccGroupVO updateBaseInfo(AccGroupVO vo, String operator) {
+        Objects.requireNonNull(vo.getId(), "更新操作必须提供ID");
+        AccGroup entity = this.getById(vo.getId());
+        if (entity == null) {
+            throw new IllegalArgumentException("权限组不存在: " + vo.getId());
+        }
+
+        String oldPeriodId = entity.getPeriodId();
+        String newPeriodId = vo.getPeriodId();
+        boolean periodChanged = !Objects.equals(
+                oldPeriodId == null ? null : oldPeriodId.trim(),
+                newPeriodId == null ? null : newPeriodId.trim()
+        );
+
+        entity.setGroupName(vo.getGroupName());
+        entity.setRemark(vo.getRemark());
+        entity.setPeriodId(newPeriodId);
+
+        this.updateById(entity);
+
+        // 若时间规则发生变更，刷新授权（删除旧授权并按新时区重下发）
+        if (periodChanged) {
+            try {
+                log.info("刷新权限组授权 groupId={}, oldPeriodId={}, newPeriodId={}",
+                        entity.getId(), oldPeriodId, newPeriodId);
+                accIoTDispatchService.refreshGroupAuthorizationAfterPeriodChange(entity.getId());
+            } catch (Exception e) {
+                log.warn("组授权刷新失败 groupId={}, err={}", entity.getId(), e.getMessage());
+            }
+        }
+
+        AccGroupVO updated = toVOWithoutDetail(entity);
         updated.setMemberCount(countMembers(entity.getId()));
         updated.setDeviceCount(countDevices(entity.getId()));
         return updated;
