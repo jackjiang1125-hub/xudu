@@ -7,6 +7,7 @@ import org.jeecgframework.boot.iot.vo.IotDeviceVO;
 
 import java.util.Map;
 import java.util.Date;
+import java.util.List;
 
 public interface IotDeviceService  {
 
@@ -243,6 +244,24 @@ public interface IotDeviceService  {
      * 远程解锁（CONTROL DEVICE 06010000）。
      */
     void remoteUnlockDoor(String sn, Integer doorId, String operator);
+
+    /**
+     * 启动当天常开时间段（CONTROL DEVICE 04010100）。
+     */
+    void enableTodayAlwaysOpen(String sn, Integer doorId, String operator);
+
+    /**
+     * 禁用当天常开时间段（CONTROL DEVICE 04010000）。
+     */
+    void disableTodayAlwaysOpen(String sn, Integer doorId, String operator);
+
+    /**
+     * 入队 DATA COUNT 命令（返回命令ID）
+     */
+    String enqueueDataCountUser(String sn, String operator);
+    String enqueueDataCountBioPhoto(String sn, String operator);
+    String enqueueDataCountBiodata(String sn, Integer type, String operator);
+    List<String> getCommandReportsRaw(String sn, Long sinceMillis, List<String> ids);
 
     /**
      * 下发人员新增（含权限）命令序列（增强版）。固定 4 条基础命令：

@@ -2,6 +2,9 @@ package org.jeecg.modules.acc.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+
+import java.util.List;
+
 import org.jeecg.modules.acc.entity.AccDoor;
 import org.jeecg.modules.acc.vo.AccDoorVO;
 
@@ -31,33 +34,41 @@ public interface IAccDoorService extends IService<AccDoor> {
      * @param pulseSeconds 继电器保持秒数（可空）
      * @param operator 操作人用户名
      */
-    void remoteOpenDoors(java.util.List<String> doorIds, Integer pulseSeconds, String operator);
+    void remoteOpenDoors(List<String> doorIds, Integer pulseSeconds, String operator);
 
     /**
      * 远程关门/锁定（支持批量门ID）。
      * @param doorIds 门ID集合
      * @param operator 操作人用户名
      */
-    void remoteCloseDoors(java.util.List<String> doorIds, String operator);
+    void remoteCloseDoors(List<String> doorIds, String operator);
 
     /**
      * 取消报警（支持批量门ID）。
      */
-    void remoteCancelAlarmDoors(java.util.List<String> doorIds, String operator);
+    void remoteCancelAlarmDoors(List<String> doorIds, String operator);
 
     /**
      * 远程常开（支持批量门ID）。
      */
-    void remoteHoldOpenDoors(java.util.List<String> doorIds, String operator);
+    void remoteHoldOpenDoors(List<String> doorIds, String operator);
 
     /**
      * 远程锁定（支持批量门ID）。
      */
-    void remoteLockDoors(java.util.List<String> doorIds, String operator);
+    void remoteLockDoors(List<String> doorIds, String operator);
 
     /**
      * 远程解锁（支持批量门ID）。
      */
-    void remoteUnlockDoors(java.util.List<String> doorIds, String operator);
+    void remoteUnlockDoors(List<String> doorIds, String operator);
+    /**
+     * 启动当天常开时间段（支持批量门ID）。
+     */
+    void enableTodayAlwaysOpen(List<String> doorIds, String operator);
+    /**
+     * 禁用当天常开时间段（支持批量门ID）。
+     */
+    void disableTodayAlwaysOpen(List<String> doorIds, String operator);
         
 }

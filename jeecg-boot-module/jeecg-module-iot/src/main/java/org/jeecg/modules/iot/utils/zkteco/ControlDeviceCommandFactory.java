@@ -149,6 +149,24 @@ public final class ControlDeviceCommandFactory {
         return (cmdId) -> buildUnlockDoor(cmdId, doorId);
     }
 
+    public static String buildEnableTodayAlwaysOpen(int cmdId, int doorId) {
+        String payload = "04010100";
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    public static String buildDisableTodayAlwaysOpen(int cmdId, int doorId) {
+        String payload = "04010000";
+        return prefix(cmdId) + "CONTROL" + SP + "DEVICE" + SP + payload;
+    }
+
+    public static ControlCommand enableTodayAlwaysOpen(int doorId) {
+        return (cmdId) -> buildEnableTodayAlwaysOpen(cmdId, doorId);
+    }
+
+    public static ControlCommand disableTodayAlwaysOpen(int doorId) {
+        return (cmdId) -> buildDisableTodayAlwaysOpen(cmdId, doorId);
+    }
+
     /**
      * 编码载荷为两位数序列：[DoorId][RelayId][ActionCode][PulseSeconds]
      * DoorId>=1，RelayId固定01，ActionCode固定01，关门时Pulse=00。

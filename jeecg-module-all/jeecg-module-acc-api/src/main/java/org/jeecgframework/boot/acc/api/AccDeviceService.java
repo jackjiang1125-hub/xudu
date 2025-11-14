@@ -2,6 +2,7 @@ package org.jeecgframework.boot.acc.api;
 
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
 import org.jeecgframework.boot.acc.vo.AccDeviceVO;
+import org.jeecgframework.boot.acc.vo.DeviceCapacityVO;
 import org.jeecgframework.boot.common.vo.PageRequest;
 import org.jeecgframework.boot.common.vo.PageResult;
 
@@ -77,5 +78,7 @@ public interface AccDeviceService {
       * 将设备信息写入临时表 acc_device_temp
       * @param deviceVO 设备信息（使用 sn、deviceName、isReset）
       */
-     void saveTemp(org.jeecgframework.boot.acc.vo.AccDeviceVO deviceVO);
+     void saveTemp(AccDeviceVO deviceVO);
+
+     List<DeviceCapacityVO> queryCapacity(List<String> sns);
 }

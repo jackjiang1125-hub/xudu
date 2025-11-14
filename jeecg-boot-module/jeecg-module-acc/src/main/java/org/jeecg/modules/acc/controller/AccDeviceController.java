@@ -8,6 +8,7 @@ import org.jeecg.common.api.vo.Result;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
 import org.jeecgframework.boot.acc.vo.AccDeviceVO;
+import org.jeecgframework.boot.acc.vo.DeviceCapacityVO;
 import org.jeecgframework.boot.common.vo.PageRequest;
 import org.jeecgframework.boot.common.vo.PageResult;
 import org.jeecgframework.boot.iot.api.IotDeviceService;
@@ -56,6 +57,7 @@ public class AccDeviceController {
 
     @Autowired
     private ObjectMapper objectMapper;
+
 
     /**
      * 分页查询门禁设备
@@ -322,5 +324,17 @@ public class AccDeviceController {
      * 后台验证参数请求
      */
     public record BackendVerificationRequest(List<String> sns, Boolean enabled, String offlinePolicy) {
+    }
+
+    public record CapacityRequest(List<String> sns) {}
+
+    @PostMapping("/queryCapacity")
+    @Operation(summary = "查询设备容量")
+    public Result<List<DeviceCapacityVO>> queryCapacity(@RequestBody CapacityRequest request) {
+        if (request == null || request.sns() == null || request.sns().isEmpty()) {
+            return Result.error("参数sns不能为空");
+        }
+        List<DeviceCapacityVO> items = accDeviceService.queryCapacity(request.sns());
+        return Result.OK(items);
     }
 }

@@ -36,6 +36,7 @@ public class AccDoorServiceImpl extends JeecgServiceImpl<AccDoorMapper, AccDoor>
     @Autowired
     private ObjectMapper objectMapper;
 
+
     /**
      * 判断设备是否在线：基于最新心跳时间戳（Redis键：iot:acc:heartbeat:<sn>），5秒内视为在线。
      */
@@ -227,6 +228,50 @@ public class AccDoorServiceImpl extends JeecgServiceImpl<AccDoorMapper, AccDoor>
                 continue;
             }
             iotDeviceService.remoteUnlockDoor(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void enableTodayAlwaysOpen(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.enableTodayAlwaysOpen(sn, doorNumber, operator);
+        }
+    }
+
+    @Override
+    public void disableTodayAlwaysOpen(List<String> doorIds, String operator) {
+        if (doorIds == null || doorIds.isEmpty()) {
+            return;
+        }
+        for (String id : doorIds) {
+            AccDoor door = this.getById(id);
+            if (door == null) {
+                continue;
+            }
+            String sn = door.getDeviceSn();
+            Integer doorNumber = door.getDoorNumber();
+            if (sn == null || sn.isBlank() || doorNumber == null || doorNumber <= 0) {
+                continue;
+            }
+            if (!isDeviceOnline(sn)) {
+                continue;
+            }
+            iotDeviceService.disableTodayAlwaysOpen(sn, doorNumber, operator);
         }
     }
 }

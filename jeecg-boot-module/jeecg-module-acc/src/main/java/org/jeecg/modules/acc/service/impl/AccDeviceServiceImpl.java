@@ -23,6 +23,7 @@ import org.jeecg.modules.events.acc.RegisterAccDeviceEvent;
 import org.jeecgframework.boot.acc.api.AccDeviceService;
 import org.jeecgframework.boot.acc.query.AccDeviceQuery;
 import org.jeecgframework.boot.acc.vo.AccDeviceVO;
+import org.jeecgframework.boot.acc.vo.DeviceCapacityVO;
 import org.jeecgframework.boot.common.vo.PageRequest;
 import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.jeecgframework.boot.iot.api.IotDeviceService;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -422,5 +425,108 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
 
         log.info("删除设备成功，id={}, sn={}", id, sn);
         return true;
+    }
+
+    @Override
+    public List<DeviceCapacityVO> queryCapacity(List<String> sns) {
+        if (sns == null || sns.isEmpty()) {
+            return new ArrayList<>();
+        }
+        long startMillis = System.currentTimeMillis();
+        Map<String, Map<String, String>> idTypeMap = new HashMap<>();
+        List<DeviceCapacityVO> items = new ArrayList<>();
+        String operator = "system";
+        for (String sn : sns) {
+            Map<String, String> m = new HashMap<>();
+            String idUser = iotDeviceService.enqueueDataCountUser(sn, operator);
+            String idBioPhoto = iotDeviceService.enqueueDataCountBioPhoto(sn, operator);
+            String idPalm = iotDeviceService.enqueueDataCountBiodata(sn, 8, operator);
+            String idFace = iotDeviceService.enqueueDataCountBiodata(sn, 9, operator);
+            if (idUser != null) m.put(idUser, "user");
+            if (idBioPhoto != null) m.put(idBioPhoto, "biophoto");
+            if (idPalm != null) m.put(idPalm, "biodata:8");
+            if (idFace != null) m.put(idFace, "biodata:9");
+            idTypeMap.put(sn, m);
+            AccDeviceVO dev = getBySn(sn);
+            DeviceCapacityVO ci = new DeviceCapacityVO();
+            ci.setSn(sn);
+            ci.setDeviceName(dev != null ? dev.getDeviceName() : sn);
+            items.add(ci);
+        }
+        long deadline = startMillis + 10_000L;
+        while (System.currentTimeMillis() < deadline) {
+            for (String sn : sns) {
+                Map<String, String> m = idTypeMap.get(sn);
+                if (m == null || m.isEmpty()) continue;
+                List<String> raws = iotDeviceService.getCommandReportsRaw(sn, startMillis, new java.util.ArrayList<>(m.keySet()));
+                if (raws != null && !raws.isEmpty()) {
+                    DeviceCapacityVO item = null;
+                    for (DeviceCapacityVO it : items) {
+                        if (sn.equals(it.getSn())) { item = it; break; }
+                    }
+                    for (String line : raws) {
+                        Map<String, String> fields = parseKv(line);
+                        String id = fields.getOrDefault("ID", "");
+                        String type = m.get(id);
+                        String count = firstNonBlank(fields, "Count", "count", "Total", "TOTAL", "Records", "RecordCount");
+                        if ("user".equals(type)) item.setPersonCount(count);
+                        else if ("biophoto".equals(type)) item.setBiophotoCount(count);
+                        else if ("biodata:8".equals(type)) item.setPalmVeinCount(count);
+                        else if ("biodata:9".equals(type)) { if (item.getFaceCount() == null) item.setFaceCount(count); }
+                        m.remove(id);
+                    }
+                }
+            }
+            boolean allDone = idTypeMap.values().stream().allMatch(Map::isEmpty);
+            if (allDone) break;
+            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+        }
+        for (DeviceCapacityVO i : items) {
+            if (i.getFingerVersion() == null) i.setFingerVersion("V10.0");
+            if (i.getFaceVersion() == null) i.setFaceVersion("V39.3");
+            if (i.getPalmVeinVersion() == null) i.setPalmVeinVersion("×");
+            if (i.getFingerCount() == null) i.setFingerCount("×");
+            if (i.getFingerVeinCount() == null) i.setFingerVeinCount("×");
+            if (i.getFaceCount() == null) i.setFaceCount("×");
+            if (i.getBiophotoCount() == null) i.setBiophotoCount("×");
+            if (i.getPersonCount() == null) i.setPersonCount("×");
+            if (i.getPalmVeinCount() == null) i.setPalmVeinCount("×");
+        }
+        return items;
+    }
+
+    private static java.util.Map<String, String> parseKv(String line) {
+        java.util.Map<String, String> map = new java.util.HashMap<>();
+        if (line == null) return map;
+        String normalized = line.replace('&', ' ');
+        String[] parts = normalized.split("\\s+|\\t");
+        for (String p : parts) {
+            int idx = p.indexOf('=');
+            if (idx > 0) {
+                String k = p.substring(0, idx).trim();
+                String v = p.substring(idx + 1).trim();
+                map.put(k, v);
+            } else {
+                if (p.startsWith("ID:")) {
+                    String v = p.replace("ID:", "").trim();
+                    if (v.matches("\\d+")) map.put("ID", v);
+                } else if (p.startsWith("Return:")) {
+                    map.put("Return", p.replace("Return:", "").trim());
+                } else if (p.startsWith("CMD:")) {
+                    map.put("CMD", p.replace("CMD:", "").trim());
+                }
+            }
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("ID=(\\d+)").matcher(line);
+        if (m.find()) map.put("ID", m.group(1));
+        return map;
+    }
+
+    private static String firstNonBlank(java.util.Map<String, String> m, String... keys) {
+        for (String k : keys) {
+            String v = m.get(k);
+            if (v != null && !v.isBlank()) return v;
+        }
+        return "";
     }
 }
