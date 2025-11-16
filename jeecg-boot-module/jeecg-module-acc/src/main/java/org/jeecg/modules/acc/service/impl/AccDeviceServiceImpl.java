@@ -432,65 +432,60 @@ public class AccDeviceServiceImpl extends JeecgServiceImpl<AccDeviceMapper, AccD
         if (sns == null || sns.isEmpty()) {
             return new ArrayList<>();
         }
-        long startMillis = System.currentTimeMillis();
-        Map<String, Map<String, String>> idTypeMap = new HashMap<>();
         List<DeviceCapacityVO> items = new ArrayList<>();
         String operator = "system";
         for (String sn : sns) {
-            Map<String, String> m = new HashMap<>();
-            String idUser = iotDeviceService.enqueueDataCountUser(sn, operator);
-            String idBioPhoto = iotDeviceService.enqueueDataCountBioPhoto(sn, operator);
-            String idPalm = iotDeviceService.enqueueDataCountBiodata(sn, 8, operator);
-            String idFace = iotDeviceService.enqueueDataCountBiodata(sn, 9, operator);
-            if (idUser != null) m.put(idUser, "user");
-            if (idBioPhoto != null) m.put(idBioPhoto, "biophoto");
-            if (idPalm != null) m.put(idPalm, "biodata:8");
-            if (idFace != null) m.put(idFace, "biodata:9");
-            idTypeMap.put(sn, m);
+            // trigger async count commands
+            iotDeviceService.enqueueDataCountUser(sn, operator);
+            iotDeviceService.enqueueDataCountBioPhoto(sn, operator);
+            iotDeviceService.enqueueDataCountBiodata(sn, 8, operator);
+            iotDeviceService.enqueueDataCountBiodata(sn, 9, operator);
+
             AccDeviceVO dev = getBySn(sn);
             DeviceCapacityVO ci = new DeviceCapacityVO();
             ci.setSn(sn);
             ci.setDeviceName(dev != null ? dev.getDeviceName() : sn);
             items.add(ci);
         }
-        long deadline = startMillis + 10_000L;
-        while (System.currentTimeMillis() < deadline) {
-            for (String sn : sns) {
-                Map<String, String> m = idTypeMap.get(sn);
-                if (m == null || m.isEmpty()) continue;
-                List<String> raws = iotDeviceService.getCommandReportsRaw(sn, startMillis, new java.util.ArrayList<>(m.keySet()));
-                if (raws != null && !raws.isEmpty()) {
-                    DeviceCapacityVO item = null;
-                    for (DeviceCapacityVO it : items) {
-                        if (sn.equals(it.getSn())) { item = it; break; }
-                    }
-                    for (String line : raws) {
-                        Map<String, String> fields = parseKv(line);
-                        String id = fields.getOrDefault("ID", "");
-                        String type = m.get(id);
-                        String count = firstNonBlank(fields, "Count", "count", "Total", "TOTAL", "Records", "RecordCount");
-                        if ("user".equals(type)) item.setPersonCount(count);
-                        else if ("biophoto".equals(type)) item.setBiophotoCount(count);
-                        else if ("biodata:8".equals(type)) item.setPalmVeinCount(count);
-                        else if ("biodata:9".equals(type)) { if (item.getFaceCount() == null) item.setFaceCount(count); }
-                        m.remove(id);
-                    }
+
+        // wait 5 seconds for devices to update options
+        try { Thread.sleep(5000); } catch (InterruptedException ignored) {}
+
+        // read latest options from iotDeviceService/iotDeviceOptionsService
+        for (DeviceCapacityVO item : items) {
+            Map<String, String> opts = iotDeviceService.getLatestOptionsBySn(item.getSn());
+            if (opts != null && !opts.isEmpty()) {
+                item.setPersonCount(firstNonBlank(opts, "UserCount", "Users", "userCount"));
+                item.setBiophotoCount(firstNonBlank(opts, "BiophotoCount", "BioPhotoCount", "biophotoCount"));
+                if (item.getFaceCount() == null || item.getFaceCount().isBlank()) {
+                    item.setFaceCount(firstNonBlank(opts, "Biodata9Count", "FaceCount", "faceCount"));
+                }
+                item.setPalmVeinCount(firstNonBlank(opts, "Biodata8Count", "PalmVeinCount", "palmVeinCount"));
+                item.setFingerCount(firstNonBlank(opts, "FingerCount", "fingerCount"));
+                item.setFingerVeinCount(firstNonBlank(opts, "FingerVeinCount", "fingerVeinCount"));
+                if (item.getFingerVersion() == null || item.getFingerVersion().isBlank()) {
+                    item.setFingerVersion(firstNonBlank(opts, "FingerVersion", "FingerVer", "FingerSW"));
+                }
+                if (item.getFaceVersion() == null || item.getFaceVersion().isBlank()) {
+                    item.setFaceVersion(firstNonBlank(opts, "FaceVersion", "FaceVer", "FaceSW"));
+                }
+                if (item.getPalmVeinVersion() == null || item.getPalmVeinVersion().isBlank()) {
+                    item.setPalmVeinVersion(firstNonBlank(opts, "PalmVeinVersion", "PalmVeinVer", "PalmVeinSW"));
                 }
             }
-            boolean allDone = idTypeMap.values().stream().allMatch(Map::isEmpty);
-            if (allDone) break;
-            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
         }
+
+        // fill defaults if still missing
         for (DeviceCapacityVO i : items) {
-            if (i.getFingerVersion() == null) i.setFingerVersion("V10.0");
-            if (i.getFaceVersion() == null) i.setFaceVersion("V39.3");
-            if (i.getPalmVeinVersion() == null) i.setPalmVeinVersion("×");
-            if (i.getFingerCount() == null) i.setFingerCount("×");
-            if (i.getFingerVeinCount() == null) i.setFingerVeinCount("×");
-            if (i.getFaceCount() == null) i.setFaceCount("×");
-            if (i.getBiophotoCount() == null) i.setBiophotoCount("×");
-            if (i.getPersonCount() == null) i.setPersonCount("×");
-            if (i.getPalmVeinCount() == null) i.setPalmVeinCount("×");
+            if (i.getFingerVersion() == null || i.getFingerVersion().isBlank()) i.setFingerVersion("V10.0");
+            if (i.getFaceVersion() == null || i.getFaceVersion().isBlank()) i.setFaceVersion("V39.3");
+            if (i.getPalmVeinVersion() == null || i.getPalmVeinVersion().isBlank()) i.setPalmVeinVersion("×");
+            if (i.getFingerCount() == null || i.getFingerCount().isBlank()) i.setFingerCount("×");
+            if (i.getFingerVeinCount() == null || i.getFingerVeinCount().isBlank()) i.setFingerVeinCount("×");
+            if (i.getFaceCount() == null || i.getFaceCount().isBlank()) i.setFaceCount("×");
+            if (i.getBiophotoCount() == null || i.getBiophotoCount().isBlank()) i.setBiophotoCount("×");
+            if (i.getPersonCount() == null || i.getPersonCount().isBlank()) i.setPersonCount("×");
+            if (i.getPalmVeinCount() == null || i.getPalmVeinCount().isBlank()) i.setPalmVeinCount("×");
         }
         return items;
     }
