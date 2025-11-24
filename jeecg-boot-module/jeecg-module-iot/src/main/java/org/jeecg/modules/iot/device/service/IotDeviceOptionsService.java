@@ -22,6 +22,8 @@ public interface IotDeviceOptionsService extends IService<IotDeviceOptions> {
      */
     void saveDeviceOptions(String sn, String deviceId, Map<String, String> options, 
                           String rawPayload, String clientIp, LocalDateTime reportTime);
+    void upsertDeviceOptions(String sn, String deviceId, Map<String, String> options, 
+                          String rawPayload, String clientIp, LocalDateTime reportTime);
 
     /**
      * 根据设备序列号删除所有参数

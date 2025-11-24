@@ -13,6 +13,7 @@ import org.jeecg.modules.iot.device.entity.IotDeviceRtLog;
 import org.jeecg.modules.iot.device.entity.IotDeviceState;
 import org.jeecg.modules.iot.device.entity.IotDeviceCommand;
 import org.jeecg.modules.iot.device.entity.IotDeviceCommandReport;
+import org.jeecg.modules.iot.device.entity.IotDeviceOptions;
 import org.jeecg.modules.iot.device.mapper.IotDeviceMapper;
 import org.jeecg.modules.iot.device.service.ControlDeviceCommandDispatcher;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceMapstruct;
@@ -891,5 +892,29 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         cmds.add(AccessCommandFactory.buildDeleteUserPic(id++, pin));
         log.info("[IoT] 下发人员删除图片和比对模版(2条) sn={}, pin={}", sn, pin);
         iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    @Override
+    public Map<String, String> getLatestOptionsBySn(String sn) {
+        if (StringUtils.isBlank(sn)) {
+            return Collections.emptyMap();
+        }
+        QueryWrapper<IotDeviceOptions> qw = new QueryWrapper<>();
+        qw.eq("sn", sn).orderByDesc("report_time");
+        List<IotDeviceOptions> list = iotDeviceOptionsService.list(qw);
+        Map<String, String> map = new java.util.HashMap<>();
+        if (list != null) {
+            for (IotDeviceOptions opt : list) {
+                String name = opt.getParamName();
+                if (StringUtils.isBlank(name)) continue;
+                if (!map.containsKey(name)) {
+                    String v = opt.getParamValue();
+                    if (v != null && !v.isBlank()) {
+                        map.put(name, v);
+                    }
+                }
+            }
+        }
+        return map;
     }
 }

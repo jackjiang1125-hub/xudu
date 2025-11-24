@@ -365,4 +365,5 @@ public interface IotDeviceService  {
      */
     void removeUserPicAndBioPhoto(String sn, String pin);
 
+    Map<String, String> getLatestOptionsBySn(String sn);
 }

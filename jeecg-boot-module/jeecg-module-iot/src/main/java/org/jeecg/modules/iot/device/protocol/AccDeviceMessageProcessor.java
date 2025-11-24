@@ -86,6 +86,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 case "/iclock/devicecmd" -> handleDeviceCommandReport(message);
                 // 增加回复时区/iclock/rtdata
                 case "/iclock/rtdata" -> handleRtdata(message);
+                // 增加queryData
+                case "/iclock/querydata" -> handleQueryData(message);
                 default -> DeviceResponse.text(404, "NOT FOUND");
             };
         } catch (Exception e) {
@@ -339,6 +341,31 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 .body(body)
                 .contentType("text/plain; charset=UTF-8")
                 .build();
+    }
+
+    private DeviceResponse handleQueryData(DeviceMessage message) {
+        Map<String, String> query = message.getQueryParameters();
+        String sn = firstValue(query, "sn", "SN");
+        if (StringUtils.isBlank(sn)) {
+            return DeviceResponse.text(OK);
+        }
+        String payload = message.getPayload();
+        if (StringUtils.isBlank(payload)) {
+            return DeviceResponse.text(OK);
+        }
+        Map<String, String> data = DevicePayloadParser.parseKeyValuePayload(payload);
+        if (data == null || data.isEmpty()) {
+            return DeviceResponse.text(OK);
+        }
+        String deviceId = null;
+        Optional<IotDevice> device = iotDeviceInnerService.findBySn(sn);
+        if (device.isPresent()) {
+            deviceId = device.get().getId();
+        }
+        LocalDateTime reportTime = LocalDateTime.now();
+        iotDeviceOptionsService.upsertDeviceOptions(sn, deviceId, data, payload, message.getClientIp(), reportTime);
+        log.info("Processed queryData from device sn={}, optionsCount={}", sn, data.size());
+        return DeviceResponse.text(OK);
     }
 
     /**
