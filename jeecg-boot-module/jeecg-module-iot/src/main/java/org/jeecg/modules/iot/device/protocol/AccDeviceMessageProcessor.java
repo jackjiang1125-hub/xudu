@@ -435,7 +435,9 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             logEntity.setClientIp(message.getClientIp());
             return logEntity;
         }).collect(Collectors.toList());
-        // 改为写入 Redis 队列，供 ACC 模块顺序消费
+        // 存储到iot记录数据库
+        iotDeviceRtLogService.saveBatch(logs);
+        // 写入 Redis 队列，供 ACC 模块顺序消费
         redisCache.enqueueRtLogs(logs);
         // 同步通过Redis发布订阅，推送到WebSocket进行前端实时展示
         redisCache.publishRtLogMessages(logs);
