@@ -19,9 +19,10 @@ public class IotHKDeviceController {
     @IgnoreAuth
     @ResponseBody
     @RequestMapping(value = "/record", method = RequestMethod.POST, produces = "application/json")
-    public Result<String> record(@RequestParam(value = "event_log", required = false) String event_log, @RequestParam(value = "Picture", required = false) MultipartFile Picture, HttpServletRequest request) {
+    public Result<String> record(@RequestParam(value = "event_log", required = false) String event_log, @RequestParam(value = "Picture", required = false) MultipartFile picture, HttpServletRequest request) {
 
         System.out.println(event_log);
+        System.out.println(picture.getName());
         return Result.OK("success");
     }
 }

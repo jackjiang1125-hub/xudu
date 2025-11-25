@@ -15,7 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
-import org.jeecg.modules.hkclients.HKClients;
+import org.jeecg.modules.hkclients.clients.HkNvrClient;
 import org.jeecg.modules.hkclients.dto.HkConn;
 import org.jeecg.modules.hkclients.dto.NvrDeviceOverview;
 import org.jeecgframework.boot.common.vo.PageRequest;
@@ -60,7 +60,7 @@ public class VideoServiceImpl extends JeecgServiceImpl<VideoMapper, Video> imple
     private VideoStreamMapper videoStreamMapper;
 
     @Autowired
-    private HKClients hkClients;
+    private HkNvrClient hkClients;
 
     @Override
     public void addVideo(VideoVO videoVO) {

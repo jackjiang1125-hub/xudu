@@ -1,6 +1,7 @@
 package org.jeecg.modules.hkclients.config;
 
-import org.jeecg.modules.hkclients.HKClients;
+import org.jeecg.modules.hkclients.clients.HkAccessControlClient;
+import org.jeecg.modules.hkclients.clients.HkNvrClient;
 import org.jeecg.modules.hkclients.http.HikPooledClientManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +15,12 @@ public class HikClientsConfiguration {
     }
 
     @Bean
-    public HKClients hkClients(HikPooledClientManager manager) {
-        return new HKClients(manager);
+    public HkNvrClient hkNvrClients(HikPooledClientManager manager) {
+        return new HkNvrClient(manager);
+    }
+
+    @Bean
+    public HkAccessControlClient hkAccessControlClients(HikPooledClientManager manager) {
+        return new HkAccessControlClient(manager);
     }
 }

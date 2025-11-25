@@ -1,8 +1,11 @@
 package org.jeecg.modules.hkclients;
 
+import org.jeecg.modules.hkclients.clients.HkNvrClient;
 import org.jeecg.modules.hkclients.dto.HkConn;
 import org.jeecg.modules.hkclients.dto.NvrDeviceOverview;
 import org.jeecg.modules.hkclients.http.HikPooledClientManager;
+import org.jeecg.modules.hkclients.model.accesscontrol.UserInfo;
+import org.jeecg.modules.hkclients.model.accesscontrol.UserRightWeekPlanCfg;
 import org.jeecg.modules.hkclients.model.record.TrackDailyDistribution;
 import org.jeecg.modules.hkclients.model.search.CMSearchResult;
 import org.jeecg.modules.hkclients.model.system.DeviceInfo;
@@ -16,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class HKClientsSimpleTest {
 
     // ====== 修改这里为你的 NVR 参数 ======
-    static final String HOST = "192.168.1.75";
+    static final String HOST = "192.168.51.226";
     static final int    PORT = 80;
     static final String USER = "admin";
     static final String PASS = "Zkteco@124";
@@ -25,12 +28,12 @@ public class HKClientsSimpleTest {
     // ===================================
 
     static HikPooledClientManager manager;
-    static HKClients hk;
+    static HkNvrClient hk;
     static HkConn conn;
 
     @BeforeAll static void init() {
         manager = new HikPooledClientManager(); manager.start();
-        hk = new HKClients(manager);
+        hk = new HkNvrClient(manager);
         conn = HkConn.builder().host(HOST).port(PORT).username(USER).password(PASS)
                 .connectTimeoutMs(5000).readTimeoutMs(10000).build();
     }
@@ -57,12 +60,5 @@ public class HKClientsSimpleTest {
 
 
 
-
-    @Test @Order(5)
-    void testRaw(){
-        String url = "/ISAPI/ContentMgmt/download/capabilities";
-        String string = hk.getRaw(conn, url);
-        System.out.println(string);
-    }
 
 }

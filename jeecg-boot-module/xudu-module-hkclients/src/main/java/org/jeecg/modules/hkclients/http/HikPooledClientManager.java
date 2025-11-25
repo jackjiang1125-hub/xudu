@@ -1,5 +1,11 @@
 package org.jeecg.modules.hkclients.http;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.dataformat.xml.XmlFactory;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.Registry;
@@ -10,17 +16,14 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.jeecg.modules.hkclients.exception.HkResponseErrorHandler;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.converter.xml.Jaxb2RootElementHttpMessageConverter;
 import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
-
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlFactory;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 
 import javax.xml.stream.XMLInputFactory;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +42,9 @@ public class HikPooledClientManager {
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, RestTemplate> cache = new ConcurrentHashMap<>();
 
+    /** 用于解析海康返回的 JSON 错误体 */
+    private final ObjectMapper jsonMapper;
+
     public HikPooledClientManager() {
         Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
                 .register("http", PlainConnectionSocketFactory.getSocketFactory())
@@ -54,6 +60,10 @@ public class HikPooledClientManager {
             t.setDaemon(true);
             return t;
         });
+
+        // JSON mapper：宽松一些，忽略未知字段
+        jsonMapper = new ObjectMapper();
+        jsonMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 
     public void start() {
@@ -74,8 +84,10 @@ public class HikPooledClientManager {
         try { cm.shutdown(); } catch (Exception ignored) {}
     }
 
-    private String key(String host, int port, String username, String password, int connectTimeout, int readTimeout) {
-        return host + ":" + port + "|" + username + "|" + Objects.hashCode(password) + "|" + connectTimeout + "|" + readTimeout;
+    private String key(String host, int port, String username, String password,
+                       int connectTimeout, int readTimeout) {
+        return host + ":" + port + "|" + username + "|" + Objects.hashCode(password)
+                + "|" + connectTimeout + "|" + readTimeout;
     }
 
     public RestTemplate getOrCreate(String host, int port, String username, String password,
@@ -85,7 +97,9 @@ public class HikPooledClientManager {
             CloseableHttpClient httpClient = HttpClients.custom()
                     .setConnectionManager(cm)
                     .setKeepAliveStrategy(new DefaultConnectionKeepAliveStrategy())
-                    .setDefaultCredentialsProvider(HikRestTemplateFactory.credentials(host, port, username, password))
+                    .setDefaultCredentialsProvider(
+                            HikRestTemplateFactory.credentials(host, port, username, password)
+                    )
                     .build();
 
             RequestConfig rc = RequestConfig.custom()
@@ -94,20 +108,37 @@ public class HikPooledClientManager {
                     .setSocketTimeout(readTimeoutMs <= 0 ? 10000 : readTimeoutMs)
                     .build();
 
-            HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
+            HttpComponentsClientHttpRequestFactory factory =
+                    new HttpComponentsClientHttpRequestFactory(httpClient);
             factory.setConnectTimeout(rc.getConnectTimeout());
             factory.setReadTimeout(rc.getSocketTimeout());
 
             RestTemplate tpl = new RestTemplate(factory);
 
-            // === 用 Jackson-XML 取代 JAXB，并优先匹配 ===
-            List<HttpMessageConverter<?>> converters = new ArrayList<>(tpl.getMessageConverters());
-            // 去掉 JAXB 转换器（避免命名空间严格校验）
-            converters.removeIf(c -> c instanceof Jaxb2RootElementHttpMessageConverter);
-            // 加入我们自定义的 Jackson-XML 转换器（忽略命名空间 / 放宽未知字段）
+            // === 配置消息转换器 ===
+            List<HttpMessageConverter<?>> converters = new ArrayList<>();
+            for (HttpMessageConverter<?> c : tpl.getMessageConverters()) {
+                // 不要默认 JAXB 和默认 Jackson-XML，我们自己放一个 Jackson-XML
+                if (c instanceof Jaxb2RootElementHttpMessageConverter) {
+                    continue;
+                }
+                if (c instanceof MappingJackson2XmlHttpMessageConverter) {
+                    continue;
+                }
+                if(c instanceof MappingJackson2HttpMessageConverter) {
+                    continue;
+                }
+                converters.add(c);
+            }
+            // 最前面放我们自定义的 XML 转换器（忽略 namespace 等）
             converters.add(0, jacksonXmlConverter());
+            converters.add(hikJsonConverter());
+            // 默认 JSON 转换器（MappingJackson2HttpMessageConverter）保留在列表中
 
             tpl.setMessageConverters(converters);
+
+            // === 统一错误处理：4xx / 5xx 自动转 HKClientException ===
+            tpl.setErrorHandler(new HkResponseErrorHandler(jsonMapper));
 
             start();
             return tpl;
@@ -124,13 +155,33 @@ public class HikPooledClientManager {
         xmlMapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         xmlMapper.configure(ToXmlGenerator.Feature.WRITE_XML_DECLARATION, true);
 
-        MappingJackson2XmlHttpMessageConverter xmlConv = new MappingJackson2XmlHttpMessageConverter(xmlMapper);
+        MappingJackson2XmlHttpMessageConverter xmlConv =
+                new MappingJackson2XmlHttpMessageConverter(xmlMapper);
         xmlConv.setSupportedMediaTypes(List.of(
-                new MediaType("application","xml"),
-                new MediaType("application","xml", StandardCharsets.UTF_8),
-                new MediaType("text","xml"),
-                new MediaType("text","xml", StandardCharsets.UTF_8)
+                new MediaType("application", "xml"),
+                new MediaType("application", "xml", StandardCharsets.UTF_8),
+                new MediaType("text", "xml"),
+                new MediaType("text", "xml", StandardCharsets.UTF_8)
         ));
         return xmlConv;
     }
+
+    private static MappingJackson2HttpMessageConverter hikJsonConverter() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+
+        // ★ 关键两行：根节点自动包裹/拆掉
+        mapper.enable(SerializationFeature.WRAP_ROOT_VALUE);
+        mapper.enable(DeserializationFeature.UNWRAP_ROOT_VALUE);
+
+        MappingJackson2HttpMessageConverter jsonConv =
+                new MappingJackson2HttpMessageConverter(mapper);
+
+        jsonConv.setSupportedMediaTypes(List.of(
+                MediaType.APPLICATION_JSON,
+                new MediaType("application", "json", StandardCharsets.UTF_8)
+        ));
+        return jsonConv;
+    }
+
 }
