@@ -89,6 +89,18 @@ public class ControlDeviceCommandDispatcher {
         return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
     }
 
+    public List<IotDeviceCommand> enableTodayAlwaysOpen(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildEnableTodayAlwaysOpen(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
+    public List<IotDeviceCommand> disableTodayAlwaysOpen(String sn, int doorId, String operator) {
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = ControlDeviceCommandFactory.buildDisableTodayAlwaysOpen(cmdId, doorId);
+        return iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), operator);
+    }
+
     /**
      * 通用批量控制指令下发：可扩展为多条不同的 CONTROL DEVICE 命令。
      * @param sn 设备序列号

@@ -69,6 +69,53 @@ public class IotDeviceOptionsServiceImpl extends ServiceImpl<IotDeviceOptionsMap
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void upsertDeviceOptions(String sn, String deviceId, Map<String, String> options, 
+                                 String rawPayload, String clientIp, LocalDateTime reportTime) {
+        if (StringUtils.isBlank(sn) || options == null || options.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, String> entry : options.entrySet()) {
+            String paramName = entry.getKey();
+            String paramValue = entry.getValue();
+            if (StringUtils.isBlank(paramName)) {
+                continue;
+            }
+            if ("user".equals(paramName)) {
+                paramName = "UserCount";
+            } else if ("biophoto".equals(paramName)) {
+                paramName = "FaceCount";
+            }
+            QueryWrapper<IotDeviceOptions> queryWrapper = new QueryWrapper<>();
+            if (StringUtils.isNotBlank(deviceId)) {
+                queryWrapper.eq("device_id", deviceId);
+            }
+            queryWrapper.eq("sn", sn); 
+            queryWrapper.eq("param_name", paramName);
+            IotDeviceOptions existing = getOne(queryWrapper, false);
+            if (existing != null) {
+                existing.setParamValue(paramValue);
+                existing.setParamType(determineParamType(paramValue));
+                existing.setReportTime(reportTime);
+                existing.setRawPayload(rawPayload);
+                existing.setClientIp(clientIp);
+                updateById(existing);
+            } else {
+                IotDeviceOptions option = new IotDeviceOptions();
+                option.setDeviceId(deviceId);
+                option.setSn(sn);
+                option.setParamName(paramName);
+                option.setParamValue(paramValue);
+                option.setParamType(determineParamType(paramValue));
+                option.setReportTime(reportTime);
+                option.setRawPayload(rawPayload);
+                option.setClientIp(clientIp);
+                save(option);
+            }
+        }
+    }
+
+    @Override
     public void deleteByDeviceSn(String sn) {
         if (StringUtils.isBlank(sn)) {
             return;

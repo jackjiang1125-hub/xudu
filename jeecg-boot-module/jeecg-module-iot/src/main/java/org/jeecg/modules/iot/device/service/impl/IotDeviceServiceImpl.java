@@ -3,6 +3,8 @@ package org.jeecg.modules.iot.device.service.impl;
 
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+
 import org.apache.commons.lang3.StringUtils;
 
 import org.jeecg.modules.iot.device.entity.IotDevice;
@@ -11,6 +13,7 @@ import org.jeecg.modules.iot.device.entity.IotDeviceRtLog;
 import org.jeecg.modules.iot.device.entity.IotDeviceState;
 import org.jeecg.modules.iot.device.entity.IotDeviceCommand;
 import org.jeecg.modules.iot.device.entity.IotDeviceCommandReport;
+import org.jeecg.modules.iot.device.entity.IotDeviceOptions;
 import org.jeecg.modules.iot.device.mapper.IotDeviceMapper;
 import org.jeecg.modules.iot.device.service.ControlDeviceCommandDispatcher;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceMapstruct;
@@ -41,8 +44,14 @@ import org.jeecg.modules.iot.device.seq.CommandSeqService;
 import org.jeecg.modules.iot.utils.zkteco.AccessCommandFactory;
 
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+
 import org.jeecg.modules.iot.utils.zkteco.OptionsCommandFactory;
 
 @Service
@@ -235,6 +244,73 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
             return;
         }
         controlDeviceCommandDispatcher.unlockDoor(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void enableTodayAlwaysOpen(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.enableTodayAlwaysOpen(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public void disableTodayAlwaysOpen(String sn, Integer doorId, String operator) {
+        if (StringUtils.isBlank(sn) || doorId == null || doorId <= 0) {
+            return;
+        }
+        controlDeviceCommandDispatcher.disableTodayAlwaysOpen(sn, doorId, StringUtils.defaultString(operator, ""));
+    }
+
+    @Override
+    public String enqueueDataCountUser(String sn, String operator) {
+        if (StringUtils.isBlank(sn)) {
+            return null;
+        }
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = "C:" + cmdId + ":" + "DATA COUNT user";
+        iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), StringUtils.defaultString(operator, ""));
+        return String.valueOf(cmdId);
+    }
+
+    @Override
+    public List<String> getCommandReportsRaw(String sn, Long sinceMillis, List<String> ids) {
+        if (StringUtils.isBlank(sn) || ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LocalDateTime since = sinceMillis != null ? LocalDateTime.ofInstant(Instant.ofEpochMilli(sinceMillis), ZoneId.systemDefault()) : LocalDateTime.now().minusSeconds(10);
+        QueryWrapper<IotDeviceCommandReport> qw = new QueryWrapper<>();
+        qw.eq("sn", sn).ge("report_time", since).in("command_id", ids);
+        List<IotDeviceCommandReport> reports = iotDeviceCommandReportService.list(qw);
+        List<String> lines = new ArrayList<>();
+        for (IotDeviceCommandReport r : reports) {
+            if (r.getRawPayload() != null) {
+                lines.add(r.getRawPayload());
+            }
+        }
+        return lines;
+    }
+
+    @Override
+    public String enqueueDataCountBioPhoto(String sn, String operator) {
+        if (StringUtils.isBlank(sn)) {
+            return null;
+        }
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = "C:" + cmdId + ":" + "DATA COUNT biophoto";
+        iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), StringUtils.defaultString(operator, ""));
+        return String.valueOf(cmdId);
+    }
+
+    @Override
+    public String enqueueDataCountBiodata(String sn, Integer type, String operator) {
+        if (StringUtils.isBlank(sn) || type == null) {
+            return null;
+        }
+        int cmdId = (int) commandSeqService.nextSeq(sn);
+        String cmd = "C:" + cmdId + ":" + ("DATA COUNT biodata" + "\t" + "Type=" + type);
+        iotDeviceCommandService.enqueueCommands(sn, List.of(cmd), StringUtils.defaultString(operator, ""));
+        return String.valueOf(cmdId);
     }
 
     // 删除一体化模板，type=8是掌静脉
@@ -816,5 +892,29 @@ public class IotDeviceServiceImpl extends JeecgServiceImpl<IotDeviceMapper, IotD
         cmds.add(AccessCommandFactory.buildDeleteUserPic(id++, pin));
         log.info("[IoT] 下发人员删除图片和比对模版(2条) sn={}, pin={}", sn, pin);
         iotDeviceCommandService.enqueueCommands(sn, cmds, "");
+    }
+
+    @Override
+    public Map<String, String> getLatestOptionsBySn(String sn) {
+        if (StringUtils.isBlank(sn)) {
+            return Collections.emptyMap();
+        }
+        QueryWrapper<IotDeviceOptions> qw = new QueryWrapper<>();
+        qw.eq("sn", sn).orderByDesc("report_time");
+        List<IotDeviceOptions> list = iotDeviceOptionsService.list(qw);
+        Map<String, String> map = new java.util.HashMap<>();
+        if (list != null) {
+            for (IotDeviceOptions opt : list) {
+                String name = opt.getParamName();
+                if (StringUtils.isBlank(name)) continue;
+                if (!map.containsKey(name)) {
+                    String v = opt.getParamValue();
+                    if (v != null && !v.isBlank()) {
+                        map.put(name, v);
+                    }
+                }
+            }
+        }
+        return map;
     }
 }

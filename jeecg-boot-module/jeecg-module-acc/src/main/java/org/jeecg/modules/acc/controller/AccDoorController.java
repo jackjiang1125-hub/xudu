@@ -185,6 +185,30 @@ public class AccDoorController {
         return Result.OK("已下发远程解锁命令");
     }
 
+    @PostMapping("/enableTodayAlwaysOpen")
+    @Operation(summary = "启动当天常开时间段（批量）")
+    public Result<?> enableTodayAlwaysOpen(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.enableTodayAlwaysOpen(request.getIds(), operator);
+        return Result.OK("已下发启动当天常开时间段命令");
+    }
+
+    @PostMapping("/disableTodayAlwaysOpen")
+    @Operation(summary = "禁用当天常开时间段（批量）")
+    public Result<?> disableTodayAlwaysOpen(@RequestBody RemoteCloseRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            return Result.error("请选择要操作的记录");
+        }
+        LoginUser loginUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
+        String operator = loginUser != null ? loginUser.getUsername() : null;
+        accDoorService.disableTodayAlwaysOpen(request.getIds(), operator);
+        return Result.OK("已下发禁用当天常开时间段命令");
+    }
+
     public static class RemoteOpenRequest {
         private java.util.List<String> ids;
         private Integer pulseSeconds;

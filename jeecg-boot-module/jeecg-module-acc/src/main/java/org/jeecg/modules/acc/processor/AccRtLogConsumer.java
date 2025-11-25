@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,7 +49,7 @@ public class AccRtLogConsumer implements Runnable {
         log.info("[ACC] rtlog consumer thread started");
     }
 
-    // @PreDestroy
+    @PreDestroy
     public void stop() {
         running = false;
         if (worker != null) {
@@ -78,6 +79,14 @@ public class AccRtLogConsumer implements Runnable {
                 } else {
                     log.debug("[ACC] Duplicate rtlog skipped key={}", uniqueKey);
                 }
+            } catch (IllegalStateException e) {
+                log.warn("[ACC] Redis connection factory destroyed, stopping consumer: {}", e.getMessage());
+                running = false;
+                break;
+            } catch (org.springframework.data.redis.RedisConnectionFailureException e) {
+                log.warn("[ACC] Redis connection failure, stopping consumer: {}", e.getMessage());
+                running = false;
+                break;
             } catch (Exception e) {
                 log.warn("[ACC] rtlog consumer error: {}", e.getMessage(), e);
                 try { Thread.sleep(1000); } catch (InterruptedException ignored) {}

@@ -86,6 +86,8 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 case "/iclock/devicecmd" -> handleDeviceCommandReport(message);
                 // 增加回复时区/iclock/rtdata
                 case "/iclock/rtdata" -> handleRtdata(message);
+                // 增加queryData
+                case "/iclock/querydata" -> handleQueryData(message);
                 default -> DeviceResponse.text(404, "NOT FOUND");
             };
         } catch (Exception e) {
@@ -341,6 +343,31 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
                 .build();
     }
 
+    private DeviceResponse handleQueryData(DeviceMessage message) {
+        Map<String, String> query = message.getQueryParameters();
+        String sn = firstValue(query, "sn", "SN");
+        if (StringUtils.isBlank(sn)) {
+            return DeviceResponse.text(OK);
+        }
+        String payload = message.getPayload();
+        if (StringUtils.isBlank(payload)) {
+            return DeviceResponse.text(OK);
+        }
+        Map<String, String> data = DevicePayloadParser.parseKeyValuePayload(payload);
+        if (data == null || data.isEmpty()) {
+            return DeviceResponse.text(OK);
+        }
+        String deviceId = null;
+        Optional<IotDevice> device = iotDeviceInnerService.findBySn(sn);
+        if (device.isPresent()) {
+            deviceId = device.get().getId();
+        }
+        LocalDateTime reportTime = LocalDateTime.now();
+        iotDeviceOptionsService.upsertDeviceOptions(sn, deviceId, data, payload, message.getClientIp(), reportTime);
+        log.info("Processed queryData from device sn={}, optionsCount={}", sn, data.size());
+        return DeviceResponse.text(OK);
+    }
+
     /**
      * 解析关键字段并记录日志，默认返回验证成功（OK）。
      * 典型payload键：pin/cardno/door/verifytype/inoutstatus/event/time 等（设备可能大小写不一致）。
@@ -435,7 +462,9 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             logEntity.setClientIp(message.getClientIp());
             return logEntity;
         }).collect(Collectors.toList());
-        // 改为写入 Redis 队列，供 ACC 模块顺序消费
+        // 存储到iot记录数据库
+        iotDeviceRtLogService.saveBatch(logs);
+        // 写入 Redis 队列，供 ACC 模块顺序消费
         redisCache.enqueueRtLogs(logs);
         // 同步通过Redis发布订阅，推送到WebSocket进行前端实时展示
         redisCache.publishRtLogMessages(logs);
