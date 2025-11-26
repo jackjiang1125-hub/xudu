@@ -15,4 +15,11 @@ public interface DeviceMessageProcessor {
      * @return response to send back to the device
      */
     DeviceResponse process(DeviceMessage message);
+
+    /**
+     * 是否支持处理当前消息。默认全部支持，具体的实现类可覆盖。
+     */
+    default boolean supports(DeviceMessage message) {
+        return true;
+    }
 }

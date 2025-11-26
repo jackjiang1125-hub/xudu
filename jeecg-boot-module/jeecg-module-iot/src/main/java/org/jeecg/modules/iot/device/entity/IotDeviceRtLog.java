@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 public class IotDeviceRtLog extends JeecgEntity {
     private static final long serialVersionUID = 1L;
 
+    // -------------------- 原有字段 (保持不动) --------------------
     @Excel(name = "设备序列号", width = 15)
     @Schema(description = "设备序列号")
     @TableField("sn")
@@ -61,7 +62,10 @@ public class IotDeviceRtLog extends JeecgEntity {
     @TableField("inout_status")
     private Integer inoutStatus;
 
-    @Excel(name = "验证方式", width = 15, replace = {"密码_1", "卡片_2", "密码+卡片_3", "指纹_4", "指纹+密码_5", "指纹+卡片_6", "指纹+密码+卡片_7", "人脸_8", "人脸+密码_9", "人脸+卡片_10", "人脸+密码+卡片_11", "掌纹_15", "其他_200"})
+    @Excel(name = "验证方式", width = 15, replace = {
+            "密码_1", "卡片_2", "密码+卡片_3", "指纹_4", "指纹+密码_5", "指纹+卡片_6",
+            "指纹+密码+卡片_7", "人脸_8", "人脸+密码_9", "人脸+卡片_10", "人脸+密码+卡片_11",
+            "掌纹_15", "其他_200"})
     @Schema(description = "验证方式")
     @TableField("verify_type")
     private Integer verifyType;
@@ -99,4 +103,47 @@ public class IotDeviceRtLog extends JeecgEntity {
     @Schema(description = "客户端IP")
     @TableField("client_ip")
     private String clientIp;
+
+    // -------------------- 新增：多厂商 / HK 专用字段 --------------------
+
+    @Excel(name = "厂商", width = 12)
+    @Schema(description = "设备厂商，如 ZKTECO、HIKVISION 等")
+    @TableField("vendor")
+    private String vendor;
+
+    @Excel(name = "通道号", width = 10)
+    @Schema(description = "通道号（例如海康 channelID）")
+    @TableField("channel_id")
+    private Integer channelId;
+
+    @Excel(name = "门号", width = 10)
+    @Schema(description = "门号（海康 AccessControllerEvent.doorNo）")
+    @TableField("door_no")
+    private Integer doorNo;
+
+    @Excel(name = "验证模式", width = 15)
+    @Schema(description = "原始验证模式字符串（如 cardOrfaceOrPw）")
+    @TableField("verify_mode")
+    private String verifyMode;
+
+    @Excel(name = "大类事件", width = 10)
+    @Schema(description = "海康 majorEventType")
+    @TableField("major_event_type")
+    private Integer majorEventType;
+
+    @Excel(name = "子事件类型", width = 10)
+    @Schema(description = "海康 subEventType")
+    @TableField("sub_event_type")
+    private Integer subEventType;
+
+    @Excel(name = "工号", width = 15)
+    @Schema(description = "员工号（海康 employeeNoString）")
+    @TableField("employee_no")
+    private String employeeNo;
+
+    @Excel(name = "姓名", width = 15)
+    @Schema(description = "姓名（海康 name）")
+    @TableField("user_name")
+    private String userName;
 }
+

@@ -60,7 +60,7 @@ public class IotNettyServer {
                     protected void initChannel(SocketChannel ch) {
                         ch.pipeline()
                                 .addLast(new HttpServerCodec())
-                                .addLast(new HttpObjectAggregator(1024 * 1024))
+                                .addLast(new HttpObjectAggregator(1024 * 1024*10))
                                 .addLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS))
                                 .addLast(new DeviceMessageHandler(messageProcessor));
                     }

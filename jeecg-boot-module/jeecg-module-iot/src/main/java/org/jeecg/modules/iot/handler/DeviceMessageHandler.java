@@ -3,38 +3,22 @@ package org.jeecg.modules.iot.handler;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
-import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaderNames;
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpVersion;
-
-import io.netty.handler.codec.http.QueryStringDecoder;
-
-
-
-
+import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.multipart.*;
 import io.netty.util.CharsetUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.jeecg.modules.iot.model.DeviceFilePart;
 import org.jeecg.modules.iot.model.DeviceMessage;
 import org.jeecg.modules.iot.model.DeviceResponse;
 import org.jeecg.modules.iot.service.DeviceMessageProcessor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
-
-/**
- * Netty channel handler that converts HTTP requests into {@link DeviceMessage} instances.
- */
-public class DeviceMessageHandler extends io.netty.channel.SimpleChannelInboundHandler<FullHttpRequest> {
-
-    private static final Logger log = LoggerFactory.getLogger(DeviceMessageHandler.class);
+@Slf4j
+public class DeviceMessageHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     private final DeviceMessageProcessor messageProcessor;
 
@@ -43,26 +27,84 @@ public class DeviceMessageHandler extends io.netty.channel.SimpleChannelInboundH
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) {
-
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest msg) throws Exception {
         QueryStringDecoder decoder = new QueryStringDecoder(msg.uri());
+
+        Map<String, String> queryParams = decoder.parameters().entrySet().stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().get(0)
+                ));
+
+        String path = decoder.path();
+        String method = msg.method().name();
+        String contentType = msg.headers().get(HttpHeaderNames.CONTENT_TYPE);
+
+        String payload = null;
+        Map<String, String> formParams = Collections.emptyMap();
+        Map<String, DeviceFilePart> fileParams = Collections.emptyMap();
+
+        // 解析 multipart/form-data：主要是海康 /event/record 这种
+        if (contentType != null && contentType.startsWith(HttpHeaderValues.MULTIPART_FORM_DATA.toString())) {
+            log.debug("Handling multipart/form-data request, uri={}", msg.uri());
+            DefaultHttpDataFactory factory = new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE);
+            HttpPostRequestDecoder postDecoder = null;
+            try {
+                postDecoder = new HttpPostRequestDecoder(factory, msg);
+                formParams = new HashMap<>();
+                fileParams = new HashMap<>();
+
+                for (InterfaceHttpData data : postDecoder.getBodyHttpDatas()) {
+                    if (data.getHttpDataType() == InterfaceHttpData.HttpDataType.Attribute) {
+                        Attribute attribute = (Attribute) data;
+                        formParams.put(attribute.getName(), attribute.getValue());
+                    } else if (data.getHttpDataType() == InterfaceHttpData.HttpDataType.FileUpload) {
+                        FileUpload fu = (FileUpload) data;
+                        DeviceFilePart part = DeviceFilePart.builder()
+                                .name(fu.getName())
+                                .filename(fu.getFilename())
+                                .contentType(fu.getContentType())
+                                .bytes(fu.get())            // 全部读入内存
+                                .size(fu.length())
+                                .build();
+                        fileParams.put(fu.getName(), part);
+                    }
+                }
+
+                // 对于海康，你 Spring MVC 里 event_log 就是一个表单字段
+                // 为了保持兼容，可以把 payload 默认设为 event_log
+                payload = formParams.getOrDefault("event_log", "");
+            } catch (HttpPostRequestDecoder.ErrorDataDecoderException e) {
+                log.error("Failed to decode multipart request", e);
+                payload = msg.content().toString(CharsetUtil.UTF_8);
+            } finally {
+                if (postDecoder != null) {
+                    postDecoder.destroy();
+                }
+            }
+        } else {
+            // 非 multipart 走老逻辑：直接当文本 body
+            payload = msg.content().toString(CharsetUtil.UTF_8);
+        }
 
         DeviceMessage message = DeviceMessage.builder()
                 .uri(msg.uri())
-                .method(msg.method().name())
+                .method(method)
                 .headers(extractHeaders(msg))
-                .payload(msg.content().toString(CharsetUtil.UTF_8))
-
-                .path(decoder.path())
-                .queryParameters(decoder.parameters().entrySet().stream()
-                        .filter(entry -> !entry.getValue().isEmpty())
-                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(0))))
+                .payload(payload)
+                .path(path)
+                .queryParameters(queryParams)
                 .clientIp(resolveClientIp(ctx))
-                .contentType(msg.headers().get(HttpHeaderNames.CONTENT_TYPE))
+                .contentType(contentType)
+                .formParameters(formParams)
+                .fileParameters(fileParams)
                 .build();
+
         DeviceResponse response = messageProcessor.process(message);
         FullHttpResponse httpResponse = toHttpResponse(response);
-        boolean keepAlive = io.netty.handler.codec.http.HttpUtil.isKeepAlive(msg);
+
+        boolean keepAlive = HttpUtil.isKeepAlive(msg);
         if (keepAlive) {
             httpResponse.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
             ctx.writeAndFlush(httpResponse);
@@ -107,5 +149,4 @@ public class DeviceMessageHandler extends io.netty.channel.SimpleChannelInboundH
         }
         return "";
     }
-
 }

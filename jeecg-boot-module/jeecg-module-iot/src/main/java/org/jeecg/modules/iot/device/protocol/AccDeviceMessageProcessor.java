@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceMapstruct;
+import org.jeecg.modules.iot.device.service.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.jeecg.common.constant.CommonConstant;
 import org.jeecg.common.util.CommonUtils;
@@ -16,18 +18,12 @@ import org.jeecg.modules.iot.device.entity.IotDeviceState;
 import org.jeecg.modules.iot.device.enums.IotDeviceStatus;
 
 import org.jeecg.modules.iot.device.cache.AccDeviceRedisCache.QueuedCommand;
-import org.jeecg.modules.iot.device.service.IotDeviceCommandReportService;
-import org.jeecg.modules.iot.device.service.IotDeviceCommandService;
-import org.jeecg.modules.iot.device.service.IotDeviceOptionsService;
-import org.jeecg.modules.iot.device.service.IotDevicePhotoService;
-import org.jeecg.modules.iot.device.service.IotDeviceRtLogService;
-import org.jeecg.modules.iot.device.service.IotDeviceInnerService;
-import org.jeecg.modules.iot.device.service.IotDeviceStateService;
 import org.jeecg.modules.iot.device.util.DevicePayloadParser;
 import org.jeecg.modules.iot.model.DeviceMessage;
 import org.jeecg.modules.iot.model.DeviceResponse;
 import org.jeecg.modules.iot.service.DeviceMessageProcessor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.time.Instant;
@@ -45,23 +41,35 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RequiredArgsConstructor
+@Component
 public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
 
     private static final String OK = "OK";
 
-    private final IotDeviceInnerService iotDeviceInnerService;
-    private final IotDeviceRtLogService iotDeviceRtLogService;
-    private final IotDeviceStateService iotDeviceStateService;
-    private final IotDevicePhotoService iotDevicePhotoService;
-    private final IotDeviceCommandReportService iotDeviceCommandReportService;
-    private final IotDeviceOptionsService iotDeviceOptionsService;
-    private final IotDeviceCommandService iotDeviceCommandService;
-    private final AccDeviceRedisCache redisCache;
+    @Autowired
+    private  IotDeviceInnerService iotDeviceInnerService;
 
-    private final ApplicationEventPublisher applicationEventPublisher;
-    private final IotDeviceMapstruct iotDeviceMapstruct;
+    @Autowired
+    private  IotDeviceRtLogService iotDeviceRtLogService;
+    @Autowired
+    private  IotDeviceStateService iotDeviceStateService;
+    @Autowired
+    private  IotDevicePhotoService iotDevicePhotoService;
+    @Autowired
+    private  IotDeviceCommandReportService iotDeviceCommandReportService;
+    @Autowired
+    private  IotDeviceOptionsService iotDeviceOptionsService;
+    @Autowired
+    private  IotDeviceCommandService iotDeviceCommandService;
+    @Autowired
+    private  AccDeviceRedisCache redisCache;
+    @Autowired
+    private  ApplicationEventPublisher applicationEventPublisher;
+    @Autowired
+    private  IotDeviceMapstruct iotDeviceMapstruct;
 
-
+    @Autowired
+    private final DeviceRtLogDispatcher rtLogDispatcher;
 
 
     @Value("${jeecg.path.upload}")
@@ -69,6 +77,12 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
 
     @Value("${jeecg.uploadType}")
     private String uploadType;
+
+    @Override
+    public boolean supports(DeviceMessage message) {
+        String path = message.getPath();
+        return path != null && path.startsWith("/iclock/");
+    }
 
     @Override
     public DeviceResponse process(DeviceMessage message) {
@@ -463,11 +477,12 @@ public class AccDeviceMessageProcessor implements DeviceMessageProcessor {
             return logEntity;
         }).collect(Collectors.toList());
         // 存储到iot记录数据库
-        iotDeviceRtLogService.saveBatch(logs);
-        // 写入 Redis 队列，供 ACC 模块顺序消费
-        redisCache.enqueueRtLogs(logs);
-        // 同步通过Redis发布订阅，推送到WebSocket进行前端实时展示
-        redisCache.publishRtLogMessages(logs);
+//        iotDeviceRtLogService.saveBatch(logs);
+//        // 写入 Redis 队列，供 ACC 模块顺序消费
+//        redisCache.enqueueRtLogs(logs);
+//        // 同步通过Redis发布订阅，推送到WebSocket进行前端实时展示
+//        redisCache.publishRtLogMessages(logs);
+        rtLogDispatcher.dispatch(logs);
     }
 
     private void handleState(String sn, DeviceMessage message) {
