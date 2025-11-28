@@ -161,6 +161,29 @@ public class SysUserController {
     public Result<IPage<SysUser>> queryAllPageList(SysUser user, @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
                                                    @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize, HttpServletRequest req) {
         QueryWrapper<SysUser> queryWrapper = QueryGenerator.initQueryWrapper(user, req.getParameterMap());
+        String parentDeptId = req.getParameter("parentDeptId");
+        String includeSubDepts = req.getParameter("includeSubDepts");
+        if (org.apache.commons.lang.StringUtils.isNotEmpty(parentDeptId)) {
+            boolean includeChildren = !"false".equalsIgnoreCase(includeSubDepts) && !"0".equals(includeSubDepts);
+            List<String> deptIds;
+            if (includeChildren) {
+                deptIds = sysDepartService.getSubDepIdsByDepId(parentDeptId);
+            } else {
+                deptIds = java.util.Collections.singletonList(parentDeptId);
+            }
+            if (oConvertUtils.listIsNotEmpty(deptIds)) {
+                List<String> userIds = sysUserDepartService.list(new LambdaQueryWrapper<SysUserDepart>()
+                        .in(SysUserDepart::getDepId, deptIds))
+                    .stream().map(SysUserDepart::getUserId).distinct().collect(java.util.stream.Collectors.toList());
+                if (oConvertUtils.listIsNotEmpty(userIds)) {
+                    queryWrapper.in("id", userIds);
+                } else {
+                    queryWrapper.eq("id", "通过部门查询不到任何用户");
+                }
+            } else {
+                queryWrapper.eq("id", "通过部门查询不到任何用户");
+            }
+        }
         return sysUserService.queryPageList(req, queryWrapper, pageSize, pageNo);
     }
 

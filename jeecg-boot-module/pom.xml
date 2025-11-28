@@ -22,6 +22,7 @@
         <module>xudu-module-video</module>
         <module>xudu-module-hkclients</module>
         <module>xudu-module-facecrop</module>
+        <module>jeecg-module-wec</module>
     </modules>
 
 
