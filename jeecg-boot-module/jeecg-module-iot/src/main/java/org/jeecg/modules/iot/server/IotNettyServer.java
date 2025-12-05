@@ -12,7 +12,10 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.timeout.ReadTimeoutHandler;
+import org.jeecg.modules.iot.device.protocol.WaterDeviceSessionManager;
 import org.jeecg.modules.iot.handler.DeviceMessageHandler;
+import org.jeecg.modules.iot.handler.IotProtocolSelectorHandler;
+import org.jeecg.modules.iot.handler.WaterNettyHandler;
 import org.jeecg.modules.iot.service.DeviceMessageProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +31,18 @@ public class IotNettyServer {
 
     private final IotNettyServerProperties properties;
     private final DeviceMessageProcessor messageProcessor;
+    private final WaterDeviceSessionManager waterSessionManager;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
 
-    public IotNettyServer(IotNettyServerProperties properties, DeviceMessageProcessor messageProcessor) {
+    public IotNettyServer(IotNettyServerProperties properties,
+                          DeviceMessageProcessor messageProcessor,
+                          WaterDeviceSessionManager waterSessionManager) {
         this.properties = properties;
         this.messageProcessor = messageProcessor;
+        this.waterSessionManager = waterSessionManager;
     }
 
     public synchronized void start() throws InterruptedException {
@@ -58,17 +65,14 @@ public class IotNettyServer {
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel ch) {
-                        ch.pipeline()
-                                .addLast(new HttpServerCodec())
-                                .addLast(new HttpObjectAggregator(1024 * 1024*10))
-                                .addLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS))
-                                .addLast(new DeviceMessageHandler(messageProcessor));
+                        // Use Protocol Selector to support both HTTP and Water Protocol on the same port
+                        ch.pipeline().addLast(new IotProtocolSelectorHandler(messageProcessor, waterSessionManager));
                     }
                 });
 
         ChannelFuture channelFuture = bootstrap.bind(properties.getPort()).sync();
         serverChannel = channelFuture.channel();
-        log.info("IoT Netty server started on port {}", properties.getPort());
+        log.info("IoT Netty Server started on unified port {}", properties.getPort());
     }
 
     public synchronized void stop() {
