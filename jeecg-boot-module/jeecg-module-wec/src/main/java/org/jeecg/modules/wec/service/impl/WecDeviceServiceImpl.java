@@ -18,6 +18,8 @@ import java.util.concurrent.TimeUnit;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.util.Arrays;
 
+import org.jeecg.common.util.RedisUtil;
+
 @Service
 public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice> implements IWecDeviceService {
 
@@ -121,12 +123,37 @@ public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice
         return save(entity, false);
     }
 
+    @Autowired
+    private RedisUtil redisUtil;
+    
+    private static final String REDIS_KEY_PREFIX_HEARTBEAT = "iot:water:heartbeat:";
+
     @Override
     public boolean updateById(WecDevice entity) {
         // Pre-fetch original data to check if SN changed
         WecDevice originalDevice = this.getById(entity.getId());
         if (originalDevice == null) return false;
         String oldSn = originalDevice.getSn();
+        
+        // Check online status
+        if (oldSn != null) {
+            Object val = redisUtil.get(REDIS_KEY_PREFIX_HEARTBEAT + oldSn);
+            boolean isOnline = false;
+            if (val != null) {
+                try {
+                    long lastHeartbeat = Long.parseLong(val.toString());
+                    // 70s threshold
+                    if (System.currentTimeMillis() - lastHeartbeat <= 70000) {
+                        isOnline = true;
+                    }
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
+            if (!isOnline) {
+                throw new RuntimeException("设备离线，无法编辑");
+            }
+        }
 
         boolean result = super.updateById(entity);
         if (result) {
@@ -179,20 +206,6 @@ public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice
             if (entity.getDeviceName() != null) {
                 iotWaterControlDeviceService.updateDeviceName(entity.getSn(), entity.getDeviceName());
             }
-            
-            // Schedule async commands after 70s (wait for device to come online)
-            scheduler.schedule(() -> {
-                try {
-                    if (entity.getDeviceName() != null) {
-                        iotWaterControlDeviceService.updateDeviceName(entity.getSn(), entity.getDeviceName());
-                    }
-                    if (resetData) {
-                        iotWaterControlDeviceService.clearDeviceData(entity.getSn());
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }, 70, TimeUnit.SECONDS);
         }
         return result;
     }
