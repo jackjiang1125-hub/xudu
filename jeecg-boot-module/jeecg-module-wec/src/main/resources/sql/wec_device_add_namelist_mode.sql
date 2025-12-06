@@ -1,0 +1,1 @@
+ALTER TABLE `wec_device` ADD COLUMN `namelist_mode` int(2) DEFAULT NULL COMMENT '名单模式(0:白名单,1:黑名单,NULL:未设置)';

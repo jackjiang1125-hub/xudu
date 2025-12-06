@@ -37,6 +37,12 @@ public interface IWecDeviceService extends IService<WecDevice> {
     void executeBatchControl(String cmd, String sns);
     
     /**
+     * 更新使用指定费率模板的所有设备的费率配置
+     * @param rateTemplateId 费率模板ID
+     */
+    void updateRateConfigByTemplateId(String rateTemplateId);
+
+    /**
      * 删除设备（单个）
      */
     void removeDevice(String id);

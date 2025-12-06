@@ -1,11 +1,19 @@
 package org.jeecgframework.boot.iot.api;
 
 import org.jeecgframework.boot.iot.vo.IotWaterControlDeviceVO;
+import org.jeecgframework.boot.iot.vo.WaterRateConfigVO;
 import java.util.List;
 import java.util.Map;
 
 public interface IotWaterControlDeviceService {
     
+    /**
+     * 下发费率配置
+     * @param sn 设备序列号
+     * @param config 费率配置
+     */
+    void sendRateConfig(String sn, WaterRateConfigVO config);
+
     /**
      * 查询待绑定的水控设备
      * @param keyword SN或IP关键字
@@ -62,4 +70,11 @@ public interface IotWaterControlDeviceService {
     void removeUserAndAuthorize(String sn, String userCode);
     void setDoorFirstCardOpenDoor(String sn, Map<String, Integer> params);
     Map<String, Object> getLatestOptionsBySn(String sn);
+
+    /**
+     * 设置名单模式
+     * @param sn 设备SN
+     * @param mode 0:白名单, 1:黑名单
+     */
+    void setNamelistMode(String sn, int mode);
 }

@@ -163,6 +163,19 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void waterControlMarkHeartbeat(String sn, String clientIp, LocalDateTime heartbeatTime) {
+        findBySn(sn).ifPresent(device -> {
+            device.setLastHeartbeatTime(heartbeatTime);
+            if (StringUtils.isNotBlank(clientIp)) {
+                device.setLastKnownIp(clientIp);
+                device.setIpAddress(clientIp);
+            }
+            updateById(device);
+        });
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(String sn, IotDeviceStatus status, boolean authorized) {
         findBySn(sn).ifPresent(device -> {
             device.setStatus(status);

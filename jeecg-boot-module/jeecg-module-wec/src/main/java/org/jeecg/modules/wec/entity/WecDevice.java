@@ -67,6 +67,12 @@ public class WecDevice extends JeecgEntity {
      * 允许脱机 (1:是, 0:否)
      */
     private String allowOffline;
+
+    /**
+     * 名单模式 (0:白名单, 1:黑名单)
+     */
+    @Dict(dicCode = "namelist_mode")
+    private Integer namelistMode;
     
     /**
      * 最近一次心跳时间（非数据库字段，由Redis填充）

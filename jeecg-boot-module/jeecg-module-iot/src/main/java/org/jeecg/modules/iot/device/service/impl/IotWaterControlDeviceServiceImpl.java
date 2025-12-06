@@ -24,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 
 import org.jeecg.common.util.RedisUtil;
 
+import org.jeecgframework.boot.iot.vo.WaterRateConfigVO;
+
 @Service
 public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceService {
 
@@ -176,6 +178,110 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
         return Crc16Modbus.appendCrcCustom(payload, 2, false, false);
     }
 
+    @Override
+    public void sendRateConfig(String sn, WaterRateConfigVO config) {
+        if (StringUtils.isBlank(sn) || config == null) return;
+
+        // 1. 设置工作模式 (0X3B)
+        if (config.getWorkMode() != null) {
+            byte[] body = new byte[] { config.getWorkMode().byteValue() };
+            sendCommand(sn, buildGeneralCommand(sn, (byte)0x3B, body));
+            sleep(200);
+        }
+
+        // 2. 设置扣费方式 (0X44)
+        if (config.getDeductionMethod() != null) {
+            byte[] body = new byte[] { config.getDeductionMethod().byteValue() };
+            sendCommand(sn, buildGeneralCommand(sn, (byte)0x44, body));
+            sleep(200);
+
+            // 3. 设置费率 (0X36 或 0X42)
+            if (config.getDeductionMethod() == 0) {
+                // 计时
+                sendCommand(sn, buildRateCommand(sn, (byte)0x36, config));
+            } else {
+                // 脉冲
+                sendCommand(sn, buildRateCommand(sn, (byte)0x42, config));
+            }
+            sleep(200);
+        }
+
+        // 4. 设置免费时间 (0X46)
+        if (config.getFreeSeconds() != null) {
+            byte[] body = new byte[2];
+            int fs = config.getFreeSeconds();
+            body[0] = (byte) ((fs >>> 8) & 0xFF);
+            body[1] = (byte) (fs & 0xFF);
+            sendCommand(sn, buildGeneralCommand(sn, (byte)0x46, body));
+        }
+    }
+
+    private void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private byte[] buildGeneralCommand(String sn, byte cmd, byte[] body) {
+        byte[] addr = getAddrBytes(sn);
+        int dataLen = 1 + body.length;
+        byte[] payload = new byte[6 + dataLen];
+        payload[0] = (byte) 0xFE;
+        payload[1] = 0x03;
+        payload[2] = addr[0];
+        payload[3] = addr[1];
+        payload[4] = (byte) ((dataLen >>> 8) & 0xFF);
+        payload[5] = (byte) (dataLen & 0xFF);
+        payload[6] = cmd;
+        System.arraycopy(body, 0, payload, 7, body.length);
+        return Crc16Modbus.appendCrcCustom(payload, 2, false, false);
+    }
+
+    private byte[] buildRateCommand(String sn, byte cmd, WaterRateConfigVO config) {
+        // 数据结构:
+        // 预扣费(2B)
+        // 冷水实时(1B) 冷水金额(4B)
+        // 热水实时(1B) 热水金额(4B)
+        // 冷水计次(1B) 热水计次(1B)
+        // 总共 2 + 1+4 + 1+4 + 1 + 1 = 14 bytes
+
+        byte[] body = new byte[14];
+
+        // 1. 预扣费 (时间或流量)
+        int pre = config.getPreDeductDuration() != null ? config.getPreDeductDuration() : 0;
+        body[0] = (byte) ((pre >>> 8) & 0xFF);
+        body[1] = (byte) (pre & 0xFF);
+
+        // 2. 实时扣费 (时间或脉冲)
+        int realDuration = config.getRealTimeDuration() != null ? config.getRealTimeDuration() : 1;
+        byte durByte = (byte) (realDuration & 0xFF);
+        body[2] = durByte; // 冷水
+
+        // 3. 实时扣费金额
+        int realAmount = config.getRealTimeAmount() != null ? config.getRealTimeAmount() : 0;
+        body[3] = (byte) ((realAmount >>> 24) & 0xFF);
+        body[4] = (byte) ((realAmount >>> 16) & 0xFF);
+        body[5] = (byte) ((realAmount >>> 8) & 0xFF);
+        body[6] = (byte) (realAmount & 0xFF);
+
+        // 4. 热水实时 (Copy Cold)
+        body[7] = durByte;
+        body[8] = body[3];
+        body[9] = body[4];
+        body[10] = body[5];
+        body[11] = body[6];
+
+        // 5. 计次 (时间或脉冲)
+        int per = config.getPerTimeDuration() != null ? config.getPerTimeDuration() : 0;
+        byte perByte = (byte) (per & 0xFF);
+        body[12] = perByte; // 冷水
+        body[13] = perByte; // 热水
+
+        return buildGeneralCommand(sn, cmd, body);
+    }
+
     private byte[] getAddrBytes(String sn) {
         try {
             int addr = Integer.parseInt(sn);
@@ -318,5 +424,12 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
     @Override
     public Map<String, Object> getLatestOptionsBySn(String sn) {
         return null;
+    }
+
+    @Override
+    public void setNamelistMode(String sn, int mode) {
+        if (StringUtils.isBlank(sn)) return;
+        byte[] body = new byte[] { (byte) (mode & 0xFF) };
+        sendCommand(sn, buildGeneralCommand(sn, (byte)0x49, body));
     }
 }

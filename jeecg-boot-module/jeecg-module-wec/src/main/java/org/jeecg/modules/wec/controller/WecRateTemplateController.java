@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.jeecg.modules.wec.service.IWecDeviceService;
+
 @RestController
 @RequestMapping(WecRateTemplateConstants.RATE_TEMPLATE_BASE)
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 public class WecRateTemplateController extends JeecgController<WecRateTemplate, IWecRateTemplateService> {
 
     private final IWecRateTemplateService rateTemplateService;
+    private final IWecDeviceService wecDeviceService;
 
     @GetMapping("/list")
     @AutoLog("费率模板-列表")
@@ -60,6 +63,10 @@ public class WecRateTemplateController extends JeecgController<WecRateTemplate, 
         entity.setWorkMode(clean(entity.getWorkMode()));
         entity.setDeductionMethod(clean(entity.getDeductionMethod()));
         boolean ok = rateTemplateService.updateById(entity);
+        if (ok) {
+            // 联动更新设备费率配置
+            wecDeviceService.updateRateConfigByTemplateId(entity.getId());
+        }
         return ok ? Result.OK("编辑成功") : Result.error("记录不存在");
     }
 

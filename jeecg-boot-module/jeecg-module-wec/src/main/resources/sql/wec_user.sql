@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `wec_user` (
+  `id` varchar(32) NOT NULL,
+  `user_id` varchar(32) DEFAULT NULL COMMENT '关联系统用户ID',
+  `real_name` varchar(100) DEFAULT NULL COMMENT '姓名',
+  `work_no` varchar(100) DEFAULT NULL COMMENT '工号',
+  `card_no` varchar(100) DEFAULT NULL COMMENT '卡号',
+  `user_type` varchar(2) DEFAULT '1' COMMENT '名单类型(1:白名单, 2:黑名单)',
+  `balance` decimal(10,2) DEFAULT 0.00 COMMENT '账户余额',
+  `status` varchar(2) DEFAULT '1' COMMENT '状态(1:正常, 0:禁用)',
+  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+  `create_by` varchar(50) DEFAULT NULL,
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_by` varchar(50) DEFAULT NULL,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `sys_org_code` varchar(64) DEFAULT NULL,
+  `tenant_id` varchar(32) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_wec_user_work_no` (`work_no`),
+  KEY `idx_wec_user_card` (`card_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='水控用户名单表';

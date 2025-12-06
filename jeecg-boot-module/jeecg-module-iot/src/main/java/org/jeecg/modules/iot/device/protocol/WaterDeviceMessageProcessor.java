@@ -100,6 +100,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
                 redisUtil.set(REDIS_KEY_PREFIX_HEARTBEAT + deviceNo, System.currentTimeMillis());
                 // Async update DB heartbeat (optional, or periodic)
                 iotDeviceInnerService.markHeartbeat(deviceNo, ip, LocalDateTime.now());
+                iotDeviceInnerService.waterControlMarkHeartbeat(deviceNo, ip, LocalDateTime.now());
                 return true;
             }
 
