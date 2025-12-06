@@ -37,12 +37,6 @@ public class WecDevice extends JeecgEntity {
     private String remark;
 
     /**
-     * 安装位置
-     */
-    @Dict(dictTable = "wec_location", dicText = "location_name", dicCode = "id")
-    private String installLocation;
-
-    /**
      * 费率模板ID
      */
     @Dict(dictTable = "wec_rate_template", dicText = "template_name", dicCode = "id")

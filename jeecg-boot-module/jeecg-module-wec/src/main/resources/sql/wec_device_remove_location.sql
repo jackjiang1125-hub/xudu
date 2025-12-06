@@ -1,0 +1,1 @@
+ALTER TABLE `wec_device` DROP COLUMN `install_location`;

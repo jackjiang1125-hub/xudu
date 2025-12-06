@@ -110,7 +110,6 @@ public class WecDeviceController extends JeecgController<WecDevice, IWecDeviceSe
         wecDevice.setStatus((String) params.get("status"));
 
         // 其他字段处理（如果有）
-        wecDevice.setInstallLocation((String) params.get("installLocation"));
         wecDevice.setRateTemplateId((String) params.get("rateTemplateId"));
 
         boolean resetData = Boolean.TRUE.equals(params.get("resetData"));
