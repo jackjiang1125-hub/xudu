@@ -48,4 +48,7 @@ public class WecRateTemplate extends JeecgEntity {
 
     @TableField("per_time_duration")
     private Integer perTimeDuration;
+
+    @TableField("per_time_money")
+    private BigDecimal perTimeMoney;
 }

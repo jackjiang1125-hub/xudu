@@ -42,4 +42,9 @@ public class WaterRateConfigVO implements Serializable {
      * 计次时间(秒) 或 计次脉冲数
      */
     private Integer perTimeDuration;
+
+    /**
+     * 计次金额 (分)
+     */
+    private Integer perTimeAmount;
 }

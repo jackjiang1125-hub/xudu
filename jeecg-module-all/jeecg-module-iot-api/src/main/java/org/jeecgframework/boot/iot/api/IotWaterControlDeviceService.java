@@ -77,4 +77,10 @@ public interface IotWaterControlDeviceService {
      * @param mode 0:白名单, 1:黑名单
      */
     void setNamelistMode(String sn, int mode);
+
+    /**
+     * 查询设备总使用统计（发送0xCA指令）
+     * @param sn 设备SN
+     */
+    void queryTotalUsage(String sn);
 }

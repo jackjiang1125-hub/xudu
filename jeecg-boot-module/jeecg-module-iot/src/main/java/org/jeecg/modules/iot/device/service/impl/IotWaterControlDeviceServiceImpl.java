@@ -278,6 +278,34 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
         byte perByte = (byte) (per & 0xFF);
         body[12] = perByte; // 冷水
         body[13] = perByte; // 热水
+        
+        // Note: Standard 0x36/0x42 command in protocol v1.2 might not include PerTimeAmount.
+        // Protocol doc says 0x36/0x42 body is 14 bytes.
+        // However, if per-count mode needs an amount, it must be somewhere.
+        // Let's check protocol doc again or assume it's reusing one of the fields or appended?
+        // Re-checking code logic:
+        // The previous code structure was:
+        // [Pre 2] [RealDur 1] [RealAmt 4] [HotDur 1] [HotAmt 4] [PerDur 1] [PerHotDur 1]
+        // If work mode is 2 (per_count), the device likely uses RealAmt as the per-count amount?
+        // Or maybe the protocol has changed.
+        // Based on common water device protocols, usually per-count amount reuses the real-time amount field 
+        // OR there is a separate command/field.
+        // If we look at `config.getPerTimeAmount()`:
+        if (config.getWorkMode() != null && config.getWorkMode() == 2) {
+             // If mode is per-count, we might need to put the amount in the [RealAmt] slot?
+             // Let's try to put perTimeAmount into realAmount slot if workMode is 2.
+             int perAmount = config.getPerTimeAmount() != null ? config.getPerTimeAmount() : 0;
+             body[3] = (byte) ((perAmount >>> 24) & 0xFF);
+             body[4] = (byte) ((perAmount >>> 16) & 0xFF);
+             body[5] = (byte) ((perAmount >>> 8) & 0xFF);
+             body[6] = (byte) (perAmount & 0xFF);
+             
+             // Copy to hot water
+             body[8] = body[3];
+             body[9] = body[4];
+             body[10] = body[5];
+             body[11] = body[6];
+        }
 
         return buildGeneralCommand(sn, cmd, body);
     }
@@ -431,5 +459,13 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
         if (StringUtils.isBlank(sn)) return;
         byte[] body = new byte[] { (byte) (mode & 0xFF) };
         sendCommand(sn, buildGeneralCommand(sn, (byte)0x49, body));
+    }
+
+    @Override
+    public void queryTotalUsage(String sn) {
+        if (StringUtils.isBlank(sn)) return;
+        // Cmd 0xCA, No body
+        byte[] command = buildGeneralCommand(sn, (byte)0xCA, new byte[0]);
+        sendCommand(sn, command);
     }
 }

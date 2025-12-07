@@ -73,4 +73,22 @@ public class WecDevice extends JeecgEntity {
      */
     @TableField(exist = false)
     private java.util.Date lastHeartbeatTime;
+
+    /**
+     * 总使用时间(秒)（非数据库字段，由Redis填充）
+     */
+    @TableField(exist = false)
+    private Long totalUsageTime;
+
+    /**
+     * 总流量(ml)（非数据库字段，由Redis填充）
+     */
+    @TableField(exist = false)
+    private Long totalUsageFlow;
+
+    /**
+     * 总金额(分)（非数据库字段，由Redis填充）
+     */
+    @TableField(exist = false)
+    private Long totalUsageMoney;
 }

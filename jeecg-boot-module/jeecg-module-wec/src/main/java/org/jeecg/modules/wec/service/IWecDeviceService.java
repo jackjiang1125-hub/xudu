@@ -51,4 +51,10 @@ public interface IWecDeviceService extends IService<WecDevice> {
      * 删除设备（批量）
      */
     void removeDevices(List<String> ids);
+
+    /**
+     * 查询设备总使用统计（下发0xCA指令）
+     * @param sn 设备SN
+     */
+    void queryTotalUsage(String sn);
 }

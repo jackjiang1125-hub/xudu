@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `wec_rate_template` (
   `pre_deduct_rate` decimal(10,2) DEFAULT NULL,
   `pre_deduct_amount` decimal(10,2) DEFAULT NULL,
   `per_time_duration` int DEFAULT NULL,
+  `per_time_money` decimal(10,2) DEFAULT NULL,
   `create_by` varchar(50) DEFAULT NULL,
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_by` varchar(50) DEFAULT NULL,

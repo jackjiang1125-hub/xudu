@@ -91,11 +91,35 @@ public class WecDeviceController extends JeecgController<WecDevice, IWecDeviceSe
         return Result.OK(pageList);
     }
 
-    @Operation(summary = "搜索待添加设备")
-    @GetMapping(value = "/searchPending")
-    public Result<List<IotDeviceVO>> searchPending(@RequestParam(name = "keyword", required = false) String keyword) {
-        List<IotDeviceVO> list = wecDeviceService.searchPendingDevices(keyword);
-        return Result.OK(list);
+    @Operation(summary = "查询设备使用统计")
+    @GetMapping(value = "/usageStats")
+    public Result<IPage<WecDevice>> queryUsageStats(WecDevice wecDevice,
+                                                    @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+                                                    @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+                                                    HttpServletRequest req) {
+        QueryWrapper<WecDevice> queryWrapper = QueryGenerator.initQueryWrapper(wecDevice, req.getParameterMap());
+        Page<WecDevice> page = new Page<>(pageNo, pageSize);
+        IPage<WecDevice> pageList = wecDeviceService.page(page, queryWrapper);
+
+        if (pageList.getRecords() != null) {
+            for (WecDevice device : pageList.getRecords()) {
+                if (device.getSn() != null) {
+                    // Populate usage stats from Redis
+                    String key = "iot:water:usage:" + device.getSn();
+                    Map<Object, Object> stats = redisUtil.hmget(key);
+                    if (stats != null && !stats.isEmpty()) {
+                        try {
+                            if (stats.get("time") != null) device.setTotalUsageTime(Long.parseLong(stats.get("time").toString()));
+                            if (stats.get("flow") != null) device.setTotalUsageFlow(Long.parseLong(stats.get("flow").toString()));
+                            if (stats.get("money") != null) device.setTotalUsageMoney(Long.parseLong(stats.get("money").toString()));
+                        } catch (Exception e) {
+                            // ignore parsing errors
+                        }
+                    }
+                }
+            }
+        }
+        return Result.OK(pageList);
     }
 
     @Operation(summary = "添加/绑定设备")
@@ -137,6 +161,26 @@ public class WecDeviceController extends JeecgController<WecDevice, IWecDeviceSe
     public Result<?> delete(@RequestParam(name = "id", required = true) String id) {
         wecDeviceService.removeDevice(id);
         return Result.OK("删除成功!");
+    }
+
+    @Operation(summary = "刷新设备使用统计")
+    @PostMapping(value = "/refreshUsage")
+    public Result<?> refreshUsage() {
+        // Query all devices and send 0xCA command
+        List<WecDevice> list = wecDeviceService.list();
+        for (WecDevice device : list) {
+            if (device.getSn() != null) {
+                wecDeviceService.queryTotalUsage(device.getSn());
+            }
+        }
+        return Result.OK("刷新指令已下发，请稍后查看结果");
+    }
+
+    @Operation(summary = "搜索待添加设备")
+    @GetMapping(value = "/searchPending")
+    public Result<List<IotDeviceVO>> searchPending(@RequestParam(name = "keyword", required = false) String keyword) {
+        List<IotDeviceVO> list = wecDeviceService.searchPendingDevices(keyword);
+        return Result.OK(list);
     }
 }
 

@@ -91,6 +91,12 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
             byte[] response = buildQueryBalanceResponse(data);
             return DeviceResponse.builder().rawBody(response).build();
         }
+        // Query Usage Stats 0xCA
+        else if (isUsageStatsCA(data)) {
+            // 0xCA is a response from device, no need to reply, just parse
+            parseUsageStats(data, ip);
+            return DeviceResponse.builder().build();
+        }
 
         // If no match, return empty (or maybe we should log warning)
         return DeviceResponse.builder().build(); 
@@ -629,6 +635,44 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
         byte[] frame = Crc16Modbus.appendCrcCustom(payload, 2, false, false);
         log.info("balance reply generated: {}", HexUtil.toHex(frame));
         return frame;
+    }
+
+    private boolean isUsageStatsCA(byte[] d) {
+        if (d == null || d.length < 7) return false;
+        if ((d[0] & 0xFF) != 0xFE || (d[1] & 0xFF) != 0x03) return false;
+        return (d[6] & 0xFF) == 0xCA;
+    }
+
+    private void parseUsageStats(byte[] data, String ip) {
+        try {
+            int addr = ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
+            String sn = String.valueOf(addr);
+            
+            // Response format: FE 03 ADDR 00 0D CA [Time 4] [Flow 4] [Money 4] [CRC 2]
+            // Data offset = 7
+            // Time: 4 bytes BE (seconds)
+            long timeSec = u32IntBE(data, 7);
+            
+            // Flow: 4 bytes BE (ml)
+            long flowMl = u32IntBE(data, 11);
+            
+            // Money: 4 bytes BE (cents)
+            long moneyFen = u32IntBE(data, 15);
+            
+            log.info("Usage Stats for SN {}: Time={}s, Flow={}ml, Money={}fen", sn, timeSec, flowMl, moneyFen);
+            
+            // Store in Redis for frontend to query
+            // Key: "iot:water:usage:SN"
+            String key = "iot:water:usage:" + sn;
+            redisUtil.hset(key, "time", timeSec);
+            redisUtil.hset(key, "flow", flowMl);
+            redisUtil.hset(key, "money", moneyFen);
+            redisUtil.hset(key, "updated", System.currentTimeMillis());
+            redisUtil.expire(key, 3600); // Expire in 1 hour
+            
+        } catch (Exception e) {
+            log.error("Failed to parse usage stats 0xCA", e);
+        }
     }
 
     // Helpers

@@ -107,6 +107,9 @@ public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice
         config.setRealTimeDuration(template.getRealTimeDuration());
         config.setPreDeductDuration(template.getPreDeductTime());
         config.setPerTimeDuration(template.getPerTimeDuration());
+        if (template.getPerTimeMoney() != null) {
+            config.setPerTimeAmount(template.getPerTimeMoney().multiply(new BigDecimal(100)).intValue());
+        }
         
         // 3. Find all devices using this template
         List<WecDevice> devices = this.list(new QueryWrapper<WecDevice>().eq("rate_template_id", rateTemplateId));
@@ -161,6 +164,13 @@ public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice
             }
         }
         this.removeByIds(ids);
+    }
+
+    @Override
+    public void queryTotalUsage(String sn) {
+        if (sn != null && !sn.isEmpty()) {
+            iotWaterControlDeviceService.queryTotalUsage(sn);
+        }
     }
 
     @Override
