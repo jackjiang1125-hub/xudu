@@ -9,4 +9,5 @@ public interface IWecUserService extends IService<WecUser> {
     Map<String, Object> getStatistics(String sysOrgCode);
     void importUsers(List<WecUser> users);
     void addSystemUsers(List<String> userIds, String userType);
+    WecUser getUserByCardNo(String cardNo);
 }

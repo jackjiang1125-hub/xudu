@@ -21,6 +21,7 @@
         <module>jeecg-module-pos-api</module>
         <module>xudu-module-zlm-api</module>
         <module>xudu-module-video-api</module>
+        <module>jeecg-module-wec-api</module>
     </modules>
 
 

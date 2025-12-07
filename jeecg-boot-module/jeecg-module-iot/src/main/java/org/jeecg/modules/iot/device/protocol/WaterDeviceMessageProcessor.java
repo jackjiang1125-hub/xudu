@@ -12,12 +12,17 @@ import org.jeecg.modules.iot.util.Crc16Modbus;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.util.RedisUtil;
 import org.jeecg.modules.iot.util.HexUtil;
+import org.jeecgframework.boot.wec.api.IWecUserServiceApi;
+import org.jeecgframework.boot.wec.vo.WecConsumeRecordDTO;
+import org.jeecgframework.boot.wec.vo.WecUserVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -33,6 +38,9 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
     @Autowired
     private RedisUtil redisUtil;
 
+    @Autowired
+    private IWecUserServiceApi wecUserService;
+    
     private final WaterDeviceSessionManager sessionManager;
     
     private static final String REDIS_KEY_PREFIX_AUTH = "iot:water:auth:";
@@ -311,16 +319,54 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
              cardLE = cardLE(req, base);
         }
         
-        byte[] l1 = toGB2312Fixed("卡号:" + u32(cardLE), 16);
-        byte[] l2 = toGB2312FixedLimit("姓名:张三", 8, 16);
-        byte[] l3 = toGB2312FixedLimit("消费:10.85", 8, 16);
-        byte[] l4 = toGB2312FixedLimit("余额:100.00", 8, 16);
+        long cardNumVal = u32(cardLE);
+        String cardNo = String.valueOf(cardNumVal);
+
+        WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+
+        String l1Str = "卡号:" + cardNo;
+        String l2Str = "姓名:未注册";
+        String l3Str = "消费:0.00";
+        String l4Str = "余额:0.00";
+        String nameStr = "未注册";
+        int balanceVal = 0;
+        int consumeVal = 0;
+
+        if (user == null) {
+            l2Str = "姓名:无效卡";
+            l4Str = "请联系管理员";
+        } else {
+            nameStr = user.getRealName();
+            if (nameStr == null) nameStr = "用户";
+            l2Str = "姓名:" + nameStr;
+            
+            // Check Blacklist (UserType: 1=White, 2=Black)
+            if ("2".equals(user.getUserType())) {
+                l2Str = "状态:黑名单";
+                l4Str = "禁止使用";
+            } 
+            // Check Status (Status: 1=Normal)
+            else if (!"1".equals(user.getStatus())) {
+                l2Str = "状态:异常";
+                l4Str = "请联系管理员";
+            } else {
+                // Normal
+                BigDecimal bal = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+                l4Str = "余额:" + bal.setScale(2, BigDecimal.ROUND_HALF_UP).toString();
+                balanceVal = bal.multiply(new BigDecimal(100)).intValue();
+            }
+        }
+        
+        byte[] l1 = toGB2312Fixed(l1Str, 16);
+        byte[] l2 = toGB2312Fixed(l2Str, 16);
+        byte[] l3 = toGB2312Fixed(l3Str, 16);
+        byte[] l4 = toGB2312Fixed(l4Str, 16);
         byte[] voice = new byte[]{0x01, 0x13, 0x00};
-        byte[] name = toGB2312FixedLimit("张三", 8, 16);
-        byte[] consume = to4(1085);
-        byte[] balance = to4(10000);
+        byte[] name = toGB2312Fixed(nameStr, 16);
+        byte[] consume = to4(consumeVal);
+        byte[] balance = to4(balanceVal);
         byte[] valid = new byte[]{toBcd(99), toBcd(12), toBcd(31)};
-        byte[] discount = to2(1000);
+        byte[] discount = to2(100);
         byte[] times = to2(1);
         byte[] timesLeft = to2(99);
         byte[] freeSecs = to2(60);
@@ -366,10 +412,107 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
 
     private byte[] buildUploadResponse(byte[] req) {
         int len = ((req[4] & 0xFF) << 8) | (req[5] & 0xFF);
-        int dataStart = 6;
-        int dataEnd = dataStart + len;
-        // Logic to parse records and log them would go here (omitted for brevity, but logging key info)
+        // Data: [Cmd 0x76] [Count 1 byte] [Record 1...N] [Delete Token 4 bytes]
         int cnt = req[7] & 0xFF;
+        
+        // Records start at offset 8
+        int offset = 8;
+        
+        // Calculate where data ends (to extract delete token)
+        int dataEnd = 6 + len; 
+        
+        for (int i = 0; i < cnt; i++) {
+            // Check remaining length. Each record is 25 bytes.
+            if (offset + 25 > dataEnd) break;
+            
+            try {
+                // 1. Machine No (2 bytes BE)
+                int machineNo = ((req[offset] & 0xFF) << 8) | (req[offset + 1] & 0xFF);
+                
+                // 2. Operation Mode (1 byte)
+                int mode = req[offset + 2] & 0xFF;
+                
+                // 3. Card No (4 bytes LE)
+                long cardVal = u32(cardLE(req, offset + 3));
+                String cardNo = String.valueOf(cardVal);
+                
+                WecConsumeRecordDTO dto = new WecConsumeRecordDTO();
+                dto.setCardNo(cardNo);
+                dto.setDeviceId(String.valueOf(machineNo));
+                dto.setStatus("1"); // Success
+                dto.setRecordNo(i + 1);
+                
+                // Bluetooth Mode: 0x2A(42), 0x2B(43)
+                if (mode == 0x2A || mode == 0x2B) {
+                    // Bluetooth Record Structure: Machine(2)+Mode(1)+Card(4)+Order(16)+Time/Flow(2) = 25
+                    
+                    // Order No (16 bytes)
+                    byte[] orderBytes = new byte[16];
+                    System.arraycopy(req, offset + 7, orderBytes, 0, 16);
+                    String tradeNo = HexUtil.toHex(orderBytes);
+                    dto.setTradeNo(tradeNo);
+                    dto.setType("1"); // Consume
+                    
+                    // Amount/Balance unknown in this structure, setting to 0
+                    dto.setAmount(BigDecimal.ZERO);
+                    dto.setBalance(BigDecimal.ZERO);
+                    dto.setConsumeTime(new Date()); // Use server time
+                } else {
+                    // Standard Record Structure: Machine(2)+Mode(1)+Card(4)+Date(6)+Balance(4)+Amount(4)+Rem(2)+Cnt(2) = 25
+                    
+                    // Date (6 bytes BCD: YYMMDDHHmmss) at offset + 7
+                    int y = fromBcd(req[offset + 7]);
+                    int m = fromBcd(req[offset + 8]);
+                    int d = fromBcd(req[offset + 9]);
+                    int h = fromBcd(req[offset + 10]);
+                    int min = fromBcd(req[offset + 11]);
+                    int s = fromBcd(req[offset + 12]);
+                    
+                    // Validate
+                    if (m < 1 || m > 12) m = 1;
+                    if (d < 1 || d > 31) d = 1;
+                    if (h < 0 || h > 23) h = 0;
+                    if (min < 0 || min > 59) min = 0;
+                    if (s < 0 || s > 59) s = 0;
+                    
+                    LocalDateTime ldt = LocalDateTime.of(2000 + y, m, d, h, min, s);
+                    Date consumeTime = Date.from(ldt.toInstant(ZoneOffset.of("+8")));
+                    dto.setConsumeTime(consumeTime);
+                    
+                    // Generate Trade No: T + yyyyMMddHHmmss + Machine + Card
+                    String tradeNo = String.format("T%04d%02d%02d%02d%02d%02d%d%s", 
+                        2000+y, m, d, h, min, s, machineNo, cardNo);
+                    dto.setTradeNo(tradeNo);
+                    
+                    // Balance (4 bytes BE) at offset + 13
+                    long balanceVal = u32IntBE(req, offset + 13);
+                    dto.setBalance(new BigDecimal(balanceVal).divide(new BigDecimal(100)));
+                    
+                    // Amount (4 bytes BE) at offset + 17
+                    long amountVal = u32IntBE(req, offset + 17);
+                    dto.setAmount(new BigDecimal(amountVal).divide(new BigDecimal(100)));
+                    
+                    dto.setType("1");
+                }
+                
+                // Fill User Info
+                WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+                if (user != null) {
+                    dto.setUserId(user.getUserId());
+                    dto.setUserName(user.getRealName());
+                } else {
+                    dto.setUserName("未注册");
+                }
+                
+                wecUserService.saveConsumeRecord(dto);
+                
+                offset += 25;
+            } catch (Exception e) {
+                log.error("Failed to parse upload record index {}", i, e);
+                break;
+            }
+        }
+
         byte[] cred = new byte[4];
         if (dataEnd >= 4) {
             System.arraycopy(req, dataEnd - 4, cred, 0, 4);
@@ -408,18 +551,55 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
             cardLE = cardLE(req, base);
         }
         
-        byte[] l1 = toGB2312Fixed("欢迎使用", 16);
-        byte[] l2 = toGB2312Fixed("卡号" + u32(cardLE), 16);
-        byte[] l3 = toGB2312Fixed("余额:123.45", 16);
-        byte[] l4 = toGB2312Fixed("请开始使用", 16);
+        long cardNumVal = u32(cardLE);
+        String cardNo = String.valueOf(cardNumVal);
+
+        WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+
+        String l1Str = "欢迎使用";
+        String l2Str = "卡号:" + cardNo;
+        String l3Str = "余额:0.00";
+        String l4Str = "请开始使用";
+        String nameStr = "未注册";
+        int balanceVal = 0;
+        int consumeVal = 0;
+
+        if (user == null) {
+            l1Str = "无效卡号";
+            l4Str = "请联系管理员";
+        } else {
+            nameStr = user.getRealName();
+            if (nameStr == null) nameStr = "用户";
+
+            // Check Blacklist (UserType: 1=White, 2=Black)
+            if ("2".equals(user.getUserType())) {
+                l1Str = "黑名单卡";
+                l4Str = "禁止使用";
+            } 
+            // Check Status (Status: 1=Normal)
+            else if (!"1".equals(user.getStatus())) {
+                l1Str = "卡状态异常";
+                l4Str = "请联系管理员";
+            } else {
+                // Normal
+                BigDecimal bal = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+                l3Str = "余额:" + bal.setScale(2, BigDecimal.ROUND_HALF_UP).toString();
+                balanceVal = bal.multiply(new BigDecimal(100)).intValue();
+            }
+        }
+
+        byte[] l1 = toGB2312Fixed(l1Str, 16);
+        byte[] l2 = toGB2312Fixed(l2Str, 16);
+        byte[] l3 = toGB2312Fixed(l3Str, 16);
+        byte[] l4 = toGB2312Fixed(l4Str, 16);
         byte[] voice = new byte[]{0x00, 0x00, 0x01};
-        byte[] name = toGB2312Fixed("张三", 16);
-        byte[] consume = to4(1234);
-        byte[] balance = to4(567890);
-        byte[] discount = to2(80);
-        byte[] times = to2(1);
+        byte[] name = toGB2312Fixed(nameStr, 16);
+        byte[] consume = to4(consumeVal);
+        byte[] balance = to4(balanceVal);
+        byte[] discount = to2(100); // 100% discount (no discount) ? Or 0? Assuming 100 means 100% (original price) or 100% off? Usually 100 means 100% ratio (no discount).
+        byte[] times = to2(0);
         byte[] timesLeft = to2(0);
-        byte[] freeSecs = to2(60);
+        byte[] freeSecs = to2(0);
         
         byte[] data = new byte[64 + 3 + 16 + 4 + 4 + 2 + 2 + 2 + 2];
         int off = 0;
@@ -476,6 +656,13 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
 
     private long u32(int v) {
         return v & 0xFFFFFFFFL;
+    }
+
+    private long u32IntBE(byte[] d, int off) {
+        return ((long)(d[off] & 0xFF) << 24) |
+               ((d[off + 1] & 0xFF) << 16) |
+               ((d[off + 2] & 0xFF) << 8) |
+               (d[off + 3] & 0xFF);
     }
 
     private byte[] to4(int v) {

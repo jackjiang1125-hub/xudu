@@ -30,4 +30,11 @@ public interface SystemUserService {
      * @return 部门名称（不存在则返回空字符串）
      */
     String getDepartNameByOrgCode(String orgCode);
+
+    /**
+     * 根据卡号查询人员基础信息
+     * @param cardNo 卡号
+     * @return 人员信息（不存在返回null）
+     */
+    UserLiteVO getUserByCardNo(String cardNo);
 }

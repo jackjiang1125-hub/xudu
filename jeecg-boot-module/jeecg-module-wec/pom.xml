@@ -36,6 +36,12 @@
             <artifactId>jeecg-module-events</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.jeecgframework.boot</groupId>
+            <artifactId>jeecg-module-wec-api</artifactId>
+            <version>3.8.2</version>
+        </dependency>
+
     </dependencies>
 
 </project>
