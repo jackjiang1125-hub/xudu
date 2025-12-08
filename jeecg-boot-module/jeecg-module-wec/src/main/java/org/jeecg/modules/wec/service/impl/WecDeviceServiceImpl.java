@@ -56,6 +56,8 @@ public class WecDeviceServiceImpl extends ServiceImpl<WecDeviceMapper, WecDevice
                 updateNamelistModeBySn(sn, 1);
             } else if ("enableWhitelist".equals(cmd)) {
                 updateNamelistModeBySn(sn, 0);
+            } else if ("getNamelistMode".equals(cmd)) {
+                iotWaterControlDeviceService.getNamelistMode(sn);
             }
         }
     }

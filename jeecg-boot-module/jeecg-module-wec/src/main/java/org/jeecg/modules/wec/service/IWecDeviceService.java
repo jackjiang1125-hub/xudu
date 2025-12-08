@@ -31,7 +31,7 @@ public interface IWecDeviceService extends IService<WecDevice> {
 
     /**
      * 批量执行远程控制指令
-     * @param cmd 指令类型 (restart, factoryReset, syncTime, start, stop)
+     * @param cmd 指令类型 (restart, factoryReset, syncTime, start, stop, enableBlacklist, enableWhitelist, getNamelistMode)
      * @param sns 设备SN列表 (逗号分隔)
      */
     void executeBatchControl(String cmd, String sns);

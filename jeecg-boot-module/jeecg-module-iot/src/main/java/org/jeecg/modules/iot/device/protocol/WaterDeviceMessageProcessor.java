@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.iot.device.entity.IotDevice;
 import org.jeecg.modules.iot.device.enums.IotDeviceStatus;
 import org.jeecg.modules.iot.device.service.IotDeviceInnerService;
-import org.jeecg.modules.iot.device.service.IotDeviceStateService;
 import org.jeecg.modules.iot.model.DeviceMessage;
 import org.jeecg.modules.iot.model.DeviceResponse;
 import org.jeecg.modules.iot.service.DeviceMessageProcessor;
@@ -12,7 +11,7 @@ import org.jeecg.modules.iot.util.Crc16Modbus;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.util.RedisUtil;
 import org.jeecg.modules.iot.util.HexUtil;
-import org.jeecgframework.boot.wec.api.IWecUserServiceApi;
+import org.jeecgframework.boot.wec.api.IWecServiceApi;
 import org.jeecgframework.boot.wec.vo.WecConsumeRecordDTO;
 import org.jeecgframework.boot.wec.vo.WecUserVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -31,15 +29,12 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
 
     @Autowired
     private IotDeviceInnerService iotDeviceInnerService;
-
-    @Autowired
-    private IotDeviceStateService iotDeviceStateService;
     
     @Autowired
     private RedisUtil redisUtil;
 
     @Autowired
-    private IWecUserServiceApi wecUserService;
+    private IWecServiceApi wecServiceApi;
     
     private final WaterDeviceSessionManager sessionManager;
     
@@ -65,6 +60,12 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
         
         // Notify session manager in case there is a pending sync request
         sessionManager.onResponseReceived(ip, data);
+
+        // Check for Error Response (Cmd 0x81)
+        if (isErrorResponse81(data)) {
+            log.warn("Device returned error response: {}", HexUtil.toHex(data));
+            return DeviceResponse.builder().build();
+        }
 
         // Heartbeat 0x74
         if (isHeartbeat74(data)) {
@@ -97,6 +98,11 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
             parseUsageStats(data, ip);
             return DeviceResponse.builder().build();
         }
+        // Query/Set Namelist Mode 0x49
+        else if (isNamelistModeResponse49(data)) {
+            parseNamelistMode(data, ip);
+            return DeviceResponse.builder().build();
+        }
 
         // If no match, return empty (or maybe we should log warning)
         return DeviceResponse.builder().build(); 
@@ -113,8 +119,10 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
                 // Update heartbeat in Redis
                 redisUtil.set(REDIS_KEY_PREFIX_HEARTBEAT + deviceNo, System.currentTimeMillis());
                 // Async update DB heartbeat (optional, or periodic)
-                iotDeviceInnerService.markHeartbeat(deviceNo, ip, LocalDateTime.now());
-                iotDeviceInnerService.waterControlMarkHeartbeat(deviceNo, ip, LocalDateTime.now());
+                Boolean res = iotDeviceInnerService.waterControlMarkHeartbeatAndReturnIpIsRepeat(deviceNo, ip, LocalDateTime.now());
+                if (res) {
+                    wecServiceApi.updateDeviceIp(deviceNo, ip);
+                }
                 return true;
             }
 
@@ -144,12 +152,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
                     iotDeviceInnerService.markHeartbeat(deviceNo, ip, LocalDateTime.now());
                     
                     // 同时更新 WecDevice 表中的 SN (如果需要)
-                    // 这里 IotDeviceInnerService 最好能广播事件或同步更新业务表
-                    // 但由于分层，可能需要 Wec 模块监听或轮询。
-                    // 为了简化，假设业务表会通过其他方式同步，或者我们在 WecDeviceServiceImpl 中已经做了预处理。
-                    // 但如果设备自己改了 SN (非平台下发)，业务表会脱节。
-                    // 鉴于之前的逻辑是平台下发指令改 SN，Wec 模块已经更新了 DB (WecDevice)。
-                    // 所以这里只需要确保 IotDevice 表也更新，不产生新记录即可。
+                    wecServiceApi.updateDeviceIp(deviceNo, ip);
                     
                     return true;
                 }
@@ -174,6 +177,8 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
             // Update heartbeat
             redisUtil.set(REDIS_KEY_PREFIX_HEARTBEAT + deviceNo, System.currentTimeMillis());
             iotDeviceInnerService.markHeartbeat(deviceNo, ip, LocalDateTime.now());
+            // Sync IP to WecDevice
+            wecServiceApi.updateDeviceIp(deviceNo, ip);
             return true;
             
         } catch (Exception e) {
@@ -328,7 +333,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
         long cardNumVal = u32(cardLE);
         String cardNo = String.valueOf(cardNumVal);
 
-        WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+        WecUserVO user = wecServiceApi.getUserVoByCardNo(cardNo);
 
         String l1Str = "卡号:" + cardNo;
         String l2Str = "姓名:未注册";
@@ -502,7 +507,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
                 }
                 
                 // Fill User Info
-                WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+                WecUserVO user = wecServiceApi.getUserVoByCardNo(cardNo);
                 if (user != null) {
                     dto.setUserId(user.getUserId());
                     dto.setUserName(user.getRealName());
@@ -510,7 +515,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
                     dto.setUserName("未注册");
                 }
                 
-                wecUserService.saveConsumeRecord(dto);
+                wecServiceApi.saveConsumeRecord(dto);
                 
                 offset += 25;
             } catch (Exception e) {
@@ -560,7 +565,7 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
         long cardNumVal = u32(cardLE);
         String cardNo = String.valueOf(cardNumVal);
 
-        WecUserVO user = wecUserService.getUserVoByCardNo(cardNo);
+        WecUserVO user = wecServiceApi.getUserVoByCardNo(cardNo);
 
         String l1Str = "欢迎使用";
         String l2Str = "卡号:" + cardNo;
@@ -676,6 +681,39 @@ public class WaterDeviceMessageProcessor implements DeviceMessageProcessor {
     }
 
     // Helpers
+    private boolean isErrorResponse81(byte[] d) {
+        if (d == null || d.length < 7) return false;
+        if ((d[0] & 0xFF) != 0xFE || (d[1] & 0xFF) != 0x03) return false;
+        return (d[6] & 0xFF) == 0x81;
+    }
+
+    private boolean isNamelistModeResponse49(byte[] d) {
+        if (d == null || d.length < 7) return false;
+        if ((d[0] & 0xFF) != 0xFE || (d[1] & 0xFF) != 0x03) return false;
+        // 0x49 response
+        return (d[6] & 0xFF) == 0x49;
+    }
+
+    private void parseNamelistMode(byte[] data, String ip) {
+        try {
+            int addr = ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
+            String sn = String.valueOf(addr);
+            
+            // Response format: FE 03 ADDR LENH LENL 49 [Mode] [CRC]
+            // Data offset = 7, Length should be >= 1
+            if (data.length < 8) return;
+            
+            int mode = data[7] & 0xFF; // 0: White, 1: Black
+            log.info("Namelist Mode for SN {}: {}", sn, mode);
+            
+            // Update WecDevice via wecUserService
+            wecServiceApi.updateDeviceNamelistMode(sn, mode);
+            
+        } catch (Exception e) {
+            log.error("Failed to parse namelist mode 0x49", e);
+        }
+    }
+    
     private byte[] toGB2312Fixed(String s, int len) {
         return toGB2312FixedLimit(s, len, len);
     }

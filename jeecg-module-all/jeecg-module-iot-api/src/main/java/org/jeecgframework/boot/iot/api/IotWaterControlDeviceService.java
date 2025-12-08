@@ -83,4 +83,10 @@ public interface IotWaterControlDeviceService {
      * @param sn 设备SN
      */
     void queryTotalUsage(String sn);
+
+    /**
+     * 查询当前名单模式（发送0x49指令，数据01）
+     * @param sn 设备SN
+     */
+    void getNamelistMode(String sn);
 }

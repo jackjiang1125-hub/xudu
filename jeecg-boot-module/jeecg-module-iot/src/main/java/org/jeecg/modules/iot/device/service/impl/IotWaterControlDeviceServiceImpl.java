@@ -25,7 +25,9 @@ import java.nio.charset.StandardCharsets;
 import org.jeecg.common.util.RedisUtil;
 
 import org.jeecgframework.boot.iot.vo.WaterRateConfigVO;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceService {
 
@@ -458,7 +460,17 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
     public void setNamelistMode(String sn, int mode) {
         if (StringUtils.isBlank(sn)) return;
         byte[] body = new byte[] { (byte) (mode & 0xFF) };
-        sendCommand(sn, buildGeneralCommand(sn, (byte)0x49, body));
+        
+        byte[] cmd49 = buildGeneralCommand(sn, (byte)0x49, body);
+        log.info("切换名单模式 SN={}, Mode={}, Cmd={}", sn, mode, HexUtil.toHex(cmd49));
+        sendCommand(sn, cmd49);
+        
+        // 切换名单模式后，清空原有名单 (0x32)
+        sleep(500);
+        
+        byte[] cmd32 = buildGeneralCommand(sn, (byte)0x32, new byte[0]);
+        log.info("清空名单 SN={}, Cmd={}", sn, HexUtil.toHex(cmd32));
+        sendCommand(sn, cmd32);
     }
 
     @Override
@@ -466,6 +478,15 @@ public class IotWaterControlDeviceServiceImpl implements IotWaterControlDeviceSe
         if (StringUtils.isBlank(sn)) return;
         // Cmd 0xCA, No body
         byte[] command = buildGeneralCommand(sn, (byte)0xCA, new byte[0]);
+        sendCommand(sn, command);
+    }
+
+    @Override
+    public void getNamelistMode(String sn) {
+        if (StringUtils.isBlank(sn)) return;
+        // 0x49查询指令，Payload为空 (根据文档 FE 03 ... 00 01 49 ...)
+        byte[] command = buildGeneralCommand(sn, (byte)0x49, new byte[0]);
+        log.info("查询名单模式 SN={}, Cmd={}", sn, HexUtil.toHex(command));
         sendCommand(sn, command);
     }
 }

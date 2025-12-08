@@ -10,8 +10,10 @@ import org.jeecg.modules.iot.device.entity.IotDevice;
 import org.jeecg.modules.iot.device.enums.IotDeviceStatus;
 import org.jeecg.modules.iot.device.mapper.IotDeviceMapper;
 import org.jeecg.modules.iot.device.service.IotDeviceInnerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.jeecgframework.boot.wec.api.IWecServiceApi;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -163,15 +165,24 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void waterControlMarkHeartbeat(String sn, String clientIp, LocalDateTime heartbeatTime) {
-        findBySn(sn).ifPresent(device -> {
+    public Boolean waterControlMarkHeartbeatAndReturnIpIsRepeat(String sn, String clientIp, LocalDateTime heartbeatTime) {
+        Optional<IotDevice> deviceOpt = findBySn(sn);
+        if (deviceOpt.isPresent()) {
+            IotDevice device = deviceOpt.get();
+            boolean result = false;
             device.setLastHeartbeatTime(heartbeatTime);
             if (StringUtils.isNotBlank(clientIp)) {
-                device.setLastKnownIp(clientIp);
-                device.setIpAddress(clientIp);
+                // 检测一下是否和上次记录的 IP 不同
+                if (!StringUtils.equals(clientIp, device.getLastKnownIp())) {
+                    device.setLastKnownIp(clientIp);
+                    device.setIpAddress(clientIp);
+                    result = true;
+                }
             }
             updateById(device);
-        });
+            return result;
+        }
+        return false;
     }
 
     @Override
