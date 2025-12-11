@@ -2,6 +2,7 @@ package org.jeecgframework.boot.system.api.impl;
 
 import com.alibaba.fastjson.JSONObject;
 import org.jeecg.common.system.api.ISysBaseAPI;
+import org.jeecg.common.system.vo.DictModel;
 import org.jeecgframework.boot.system.api.SystemUserService;
 import org.jeecgframework.boot.system.vo.UserLiteVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -105,5 +106,22 @@ public class SystemUserServiceFeignImpl implements SystemUserService {
         }
         JSONObject first = departs.get(0);
         return Objects.toString(first.getString("departName"), "");
+    }
+
+    @Override
+    public UserLiteVO getUserByCardNo(String cardNo) {
+        if (cardNo == null || cardNo.isEmpty()) {
+            return null;
+        }
+        List<DictModel> list = sysBaseAPI.queryFilterTableDictInfo("sys_user", "id", "id", "card_number = '" + cardNo + "'");
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+        String userId = list.get(0).getValue();
+        List<UserLiteVO> users = this.queryUsersByIds(new String[]{userId});
+        if (users != null && !users.isEmpty()) {
+            return users.get(0);
+        }
+        return null;
     }
 }

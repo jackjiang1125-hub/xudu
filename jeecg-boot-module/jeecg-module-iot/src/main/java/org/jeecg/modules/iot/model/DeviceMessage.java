@@ -136,4 +136,9 @@ public class DeviceMessage {
         }
         return getFileParameters().get(name);
     }
+
+    /**
+     * 原始二进制数据 (针对非HTTP协议)
+     */
+    private byte[] rawBody;
 }

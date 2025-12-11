@@ -23,8 +23,15 @@ public interface IotDeviceInnerService extends JeecgService<IotDevice> {
 
     void markHeartbeat(String sn, String clientIp, LocalDateTime heartbeatTime);
 
-    void updateStatus(String sn, IotDeviceStatus status, boolean authorized);
+    Boolean waterControlMarkHeartbeatAndReturnIpIsRepeat(String sn, String clientIp, LocalDateTime heartbeatTime);
 
+    void updateStatus(String sn, IotDeviceStatus status, boolean authorized);
+    
+    IotDevice findBySnAndIp(String sn, String ip);
+    
+    IotDevice findByIp(String ip);
+    
+    void updateDevice(IotDevice device);
 
     Optional<IotDevice> authorizeDevice(String sn, String registryCode, String remark, String operator);
 

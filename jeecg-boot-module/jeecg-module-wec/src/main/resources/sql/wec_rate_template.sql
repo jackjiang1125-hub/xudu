@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS `wec_rate_template` (
+  `id` varchar(32) NOT NULL,
+  `template_name` varchar(100) NOT NULL,
+  `type` varchar(50) NOT NULL,
+  `free_seconds` int DEFAULT 0,
+  `work_mode` varchar(32) NOT NULL,
+  `deduction_method` varchar(32) NOT NULL,
+  `real_time_amount` decimal(10,2) DEFAULT NULL,
+  `real_time_duration` int DEFAULT NULL,
+  `pre_deduct_time` int DEFAULT NULL,
+  `pre_deduct_rate` decimal(10,2) DEFAULT NULL,
+  `pre_deduct_amount` decimal(10,2) DEFAULT NULL,
+  `per_time_duration` int DEFAULT NULL,
+  `per_time_money` decimal(10,2) DEFAULT NULL,
+  `create_by` varchar(50) DEFAULT NULL,
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_by` varchar(50) DEFAULT NULL,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `sys_org_code` varchar(64) DEFAULT NULL,
+  `tenant_id` varchar(32) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_rate_tpl_name` (`template_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -16,6 +16,7 @@ public class DeviceResponse {
     private final Charset charset;
 
     private final String contentType;
+    private final byte[] rawBody;
 
 
     private DeviceResponse(Builder builder) {
@@ -23,6 +24,7 @@ public class DeviceResponse {
         this.headers = builder.headers == null ? Collections.emptyMap() : Collections.unmodifiableMap(builder.headers);
         this.body = builder.body == null ? "" : builder.body;
         this.charset = builder.charset == null ? StandardCharsets.UTF_8 : builder.charset;
+        this.rawBody = builder.rawBody;
 
         this.contentType = builder.contentType == null
                 ? "text/plain; charset=" + this.charset.name()
@@ -40,6 +42,10 @@ public class DeviceResponse {
 
     public String getBody() {
         return body;
+    }
+
+    public byte[] getRawBody() {
+        return rawBody;
     }
 
     public Charset getCharset() {
@@ -61,6 +67,7 @@ public class DeviceResponse {
         private Map<String, String> headers;
         private String body;
         private Charset charset;
+        private byte[] rawBody;
 
         private String contentType;
 
@@ -80,6 +87,11 @@ public class DeviceResponse {
 
         public Builder body(String body) {
             this.body = body;
+            return this;
+        }
+
+        public Builder rawBody(byte[] rawBody) {
+            this.rawBody = rawBody;
             return this;
         }
 

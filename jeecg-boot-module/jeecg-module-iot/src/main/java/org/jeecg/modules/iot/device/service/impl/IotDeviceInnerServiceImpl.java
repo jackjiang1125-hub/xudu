@@ -10,8 +10,10 @@ import org.jeecg.modules.iot.device.entity.IotDevice;
 import org.jeecg.modules.iot.device.enums.IotDeviceStatus;
 import org.jeecg.modules.iot.device.mapper.IotDeviceMapper;
 import org.jeecg.modules.iot.device.service.IotDeviceInnerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.jeecgframework.boot.wec.api.IWecServiceApi;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -40,6 +42,52 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
     }
 
     @Override
+    public IotDevice findBySnAndIp(String sn, String ip) {
+        // 优先匹配 SN 和 IP (lastKnownIp)
+        // 考虑到 IP 可能会变，这里主要还是靠 SN 查找。
+        // 业务逻辑："请根据设备唯一标识+ip地址判断"
+        // 实际场景：设备SN可能重复(默认1)，所以需要结合IP来唯一确定一个设备记录。
+        
+        LambdaQueryWrapper<IotDevice> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(IotDevice::getSn, sn);
+        if (StringUtils.isNotBlank(ip)) {
+            wrapper.eq(IotDevice::getLastKnownIp, ip);
+        }
+        wrapper.last("limit 1");
+        
+        IotDevice device = getOne(wrapper, false);
+        if (device != null) {
+            return device;
+        }
+        
+        // 如果找不到完全匹配的，尝试只按 SN 找（针对SN还没被占用的情况）
+        // 或者如果 SN 是 "1" 这种通用ID，必须强匹配 IP。
+        // 如果 SN 是 "1"，且上面没查到，说明是新设备或IP变了的设备。
+        // 策略：如果是通用SN，且没查到IP匹配的，视为新设备。
+        if (!"1".equals(sn)) {
+             return findBySn(sn).orElse(null);
+        }
+        
+        return null;
+    }
+
+    @Override
+    public IotDevice findByIp(String ip) {
+        if (StringUtils.isBlank(ip)) return null;
+        return getOne(new LambdaQueryWrapper<IotDevice>()
+                .eq(IotDevice::getLastKnownIp, ip)
+                .last("limit 1"), false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateDevice(IotDevice device) {
+        if (device != null) {
+            updateById(device);
+        }
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public IotDevice recordInitialization(String sn, String deviceType, Map<String, String> queryParams,
                                           String clientIp, String rawPayload, LocalDateTime now) {
@@ -54,6 +102,7 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
         if (StringUtils.isNotBlank(deviceType)) {
             device.setDeviceType(deviceType);
         }
+        device.setIpAddress(clientIp);
         device.setInitPayload(rawPayload);
         device.setLastInitTime(now);
         device.setLastKnownIp(StringUtils.defaultIfBlank(clientIp, device.getLastKnownIp()));
@@ -63,6 +112,7 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
         saveOrUpdate(device);
         return device;
     }
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -111,6 +161,28 @@ public class IotDeviceInnerServiceImpl extends JeecgServiceImpl<IotDeviceMapper,
             }
             updateById(device);
         });
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean waterControlMarkHeartbeatAndReturnIpIsRepeat(String sn, String clientIp, LocalDateTime heartbeatTime) {
+        Optional<IotDevice> deviceOpt = findBySn(sn);
+        if (deviceOpt.isPresent()) {
+            IotDevice device = deviceOpt.get();
+            boolean result = false;
+            device.setLastHeartbeatTime(heartbeatTime);
+            if (StringUtils.isNotBlank(clientIp)) {
+                // 检测一下是否和上次记录的 IP 不同
+                if (!StringUtils.equals(clientIp, device.getLastKnownIp())) {
+                    device.setLastKnownIp(clientIp);
+                    device.setIpAddress(clientIp);
+                    result = true;
+                }
+            }
+            updateById(device);
+            return result;
+        }
+        return false;
     }
 
     @Override

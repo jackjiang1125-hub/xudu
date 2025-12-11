@@ -4,6 +4,7 @@ package org.jeecg.modules.iot.config;
 import org.jeecg.modules.iot.device.cache.AccDeviceRedisCache;
 import org.jeecg.modules.iot.device.mapstruct.IotDeviceMapstruct;
 import org.jeecg.modules.iot.device.protocol.AccDeviceMessageProcessor;
+import org.jeecg.modules.iot.device.protocol.WaterDeviceSessionManager;
 import org.jeecg.modules.iot.device.service.*;
 
 import org.jeecg.modules.iot.server.IotNettyServer;
@@ -36,8 +37,9 @@ public class IotNettyAutoConfiguration {
      */
     @Bean(initMethod = "start", destroyMethod = "stop")
     public IotNettyServer iotNettyServer(IotNettyServerProperties properties,
-                                         DeviceMessageProcessor deviceMessageProcessor) {
-        return new IotNettyServer(properties, deviceMessageProcessor);
+                                         DeviceMessageProcessor deviceMessageProcessor,
+                                         WaterDeviceSessionManager waterSessionManager) {
+        return new IotNettyServer(properties, deviceMessageProcessor, waterSessionManager);
     }
 
     /**

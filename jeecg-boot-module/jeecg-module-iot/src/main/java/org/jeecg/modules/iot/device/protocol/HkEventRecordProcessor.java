@@ -1,4 +1,4 @@
-package org.jeecg.modules.iot.device.protocol.hk;
+package org.jeecg.modules.iot.device.protocol;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
