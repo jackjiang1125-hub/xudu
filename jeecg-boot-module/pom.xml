@@ -15,14 +15,7 @@
     <modules>
         <module>jeecg-module-demo</module>
         <module>jeecg-boot-module-airag</module>
-        <module>jeecg-module-iot</module>
-        <module>jeecg-module-acc</module>
-        <module>jeecg-module-pos</module>
-        <module>xudu-module-zlm</module>
-        <module>xudu-module-video</module>
-        <module>xudu-module-hkclients</module>
         <module>xudu-module-facecrop</module>
-        <module>jeecg-module-wec</module>
     </modules>
 
 

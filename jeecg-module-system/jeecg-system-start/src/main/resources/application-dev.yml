@@ -161,7 +161,7 @@ spring:
           #password: root
           #driver-class-name: com.mysql.cj.jdbc.Driver
           # 腾讯云
-          url: jdbc:mysql://140.143.248.202:3306/jeecg-boot-xudu?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+          url: jdbc:mysql://140.143.248.202:3306/jeecg-boot-template?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
           username: xudu
           password: xudu2025
           driver-class-name: com.mysql.cj.jdbc.Driver

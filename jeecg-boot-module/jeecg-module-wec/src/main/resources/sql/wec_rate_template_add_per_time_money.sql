@@ -1,1 +1,0 @@
-ALTER TABLE wec_rate_template ADD COLUMN per_time_money decimal(10,2) DEFAULT NULL COMMENT '计次金额';

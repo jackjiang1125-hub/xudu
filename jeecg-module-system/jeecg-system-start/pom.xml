@@ -25,41 +25,6 @@
             <version>${jeecgboot.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>jeecg-module-iot</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>jeecg-module-acc</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>jeecg-module-pos</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>xudu-module-zlm</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>xudu-module-video</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jeecgframework.boot</groupId>
-            <artifactId>jeecg-module-wec</artifactId>
-            <version>${jeecgboot.version}</version>
-        </dependency>
-
         <!-- flyway 数据库自动升级 -->
         <dependency>
             <groupId>org.flywaydb</groupId>
