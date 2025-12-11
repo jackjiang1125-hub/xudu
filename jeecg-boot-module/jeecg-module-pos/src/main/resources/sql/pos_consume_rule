@@ -1,0 +1,43 @@
+CREATE TABLE `pos_consume_rule` (
+  `id`              varchar(32)  NOT NULL COMMENT '主键ID，JeecgEntity',
+  `create_by`       varchar(32)  DEFAULT NULL,
+  `create_time`     datetime     DEFAULT NULL,
+  `update_by`       varchar(32)  DEFAULT NULL,
+  `update_time`     datetime     DEFAULT NULL,
+  `sys_org_code`    varchar(64)  DEFAULT NULL,
+
+  `rule_code`       varchar(64)  NOT NULL COMMENT '规则编码',
+  `rule_name`       varchar(128) NOT NULL COMMENT '规则名称',
+  `rule_type`       varchar(32)  DEFAULT 'NORMAL' COMMENT '规则类型：NORMAL/ SUBSIDY 等',
+  `status`          tinyint(1)   DEFAULT 1 COMMENT '状态：0停用 1启用',
+  `priority`        int          DEFAULT 100 COMMENT '优先级，数字越小优先级越高',
+
+  `available_wallets` json       DEFAULT NULL COMMENT '可用钱包类型列表，例如 ["CASH","SUBSIDY"]',
+  `wallet_priority`   json       DEFAULT NULL COMMENT '钱包扣款顺序，例如 ["SUBSIDY","CASH"]',
+
+  `limit_daily_amount`      decimal(12,2) DEFAULT NULL COMMENT '每日消费金额上限',
+  `limit_daily_times`       int          DEFAULT NULL COMMENT '每日消费次数上限',
+  `limit_per_meal_amount`   decimal(12,2) DEFAULT NULL COMMENT '每餐消费金额上限',
+  `limit_per_meal_times`    int          DEFAULT NULL COMMENT '每餐消费次数上限',
+  `limit_single_amount`     decimal(12,2) DEFAULT NULL COMMENT '单笔消费金额上限',
+
+  `effective_start_time` datetime DEFAULT NULL COMMENT '生效开始时间',
+  `effective_end_time`   datetime DEFAULT NULL COMMENT '生效结束时间',
+  `week_days`            json     DEFAULT NULL COMMENT '适用星期列表，1-7，例如 [1,2,3,4,5]',
+  `meal_periods`         json     DEFAULT NULL COMMENT '适用餐别编码列表，例如 ["BREAKFAST","LUNCH"]',
+  `restaurant_ids`       json     DEFAULT NULL COMMENT '适用餐厅ID列表，关联 pos_restaurant',
+  `device_ids`           json     DEFAULT NULL COMMENT '适用设备ID列表（可选）',
+
+  `allow_order`        tinyint(1) DEFAULT 1 COMMENT '是否允许订餐',
+  `allow_pos_consume`  tinyint(1) DEFAULT 1 COMMENT '是否允许POS现场消费',
+  `allow_delivery`     tinyint(1) DEFAULT 1 COMMENT '是否允许外送',
+  `allow_self_pickup`  tinyint(1) DEFAULT 1 COMMENT '是否允许自取',
+
+  `remark`        varchar(512) DEFAULT NULL COMMENT '备注',
+  `ext_config`    json         DEFAULT NULL COMMENT '扩展配置JSON',
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_rule_code` (`rule_code`),
+  KEY `idx_rule_status` (`status`),
+  KEY `idx_rule_name` (`rule_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消费规则表';

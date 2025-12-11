@@ -54,7 +54,7 @@ public interface ISysUserDepartService extends IService<SysUserDepart> {
      * @param isMultiTranslate 是否多字段翻译
 	 * @return
 	 */
-	IPage<SysUser> queryDepartUserPageList(String departId, String username, String realname, int pageSize, int pageNo,String id,String isMultiTranslate);
+	IPage<SysUser> queryDepartUserPageList(String departId, String username, String realname, int pageSize, int pageNo,String id,String isMultiTranslate,Integer userType);
 
     /**
      * 获取用户信息
@@ -88,4 +88,14 @@ public interface ISysUserDepartService extends IService<SysUserDepart> {
 	 * @return
 	 */
 	List<SysUser> getUsersByDepartTenantId(String departId,Integer tenantId);
+
+
+    /**
+     * 根据部门ID查询用户ID列表
+     *
+     * @param departId        部门ID
+     * @param includeChild    是否包含子部门
+     * @return 用户ID集合（去重）
+     */
+    List<String> listUserIdsByDepart(String departId, boolean includeChild);
 }

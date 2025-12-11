@@ -1,23 +1,22 @@
 package org.jeecg.modules.pos.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.common.system.vo.LoginUser;
-import org.jeecg.modules.pos.entity.PosRestaurant;
 import org.jeecg.modules.pos.service.IPosRestaurantService;
 import org.jeecg.modules.pos.vo.PosRestaurantVO;
+import org.jeecg.modules.pos.request.PosRestaurantQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
 import java.util.List;
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * 餐厅信息管理控制器
@@ -26,7 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/pos/restaurant")
 @Slf4j
-public class PosRestaurantController extends JeecgController<PosRestaurant, IPosRestaurantService> {
+public class PosRestaurantController{
 
     @Autowired
     private IPosRestaurantService restaurantService;
@@ -37,17 +36,11 @@ public class PosRestaurantController extends JeecgController<PosRestaurant, IPos
     @AutoLog(value = "餐厅信息-分页列表查询")
     @GetMapping("/list")
     @Operation(summary = "分页查询餐厅信息")
-    public Result<IPage<PosRestaurantVO>> list(@RequestParam(name = "restaurantName", required = false) String restaurantName,
-                                             @RequestParam(name = "restaurantCode", required = false) String restaurantCode,
-                                             @RequestParam(name = "category", required = false) String category,
-                                             @RequestParam(name = "diningServiceType", required = false) String diningServiceType,
-                                             @RequestParam(name = "createTimeStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date createTimeStart,
-                                             @RequestParam(name = "createTimeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date createTimeEnd,
-                                             @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-                                             @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+    public Result<PageResult<PosRestaurantVO>> list(PosRestaurantQuery query,
+                                                    PageRequest pageRequest,
+                                                    HttpServletRequest req) {
         try {
-            IPage<PosRestaurantVO> page = restaurantService.pageList(restaurantName, restaurantCode, category,
-                    diningServiceType, createTimeStart, createTimeEnd, pageNo, pageSize);
+            PageResult<PosRestaurantVO> page = restaurantService.list(query, pageRequest, req.getParameterMap());
             return Result.OK(page);
         } catch (Exception e) {
             log.error("查询餐厅列表失败", e);

@@ -148,6 +148,97 @@ public class SysUserController {
 	}
 
     /**
+     * 通用选人控件 - 用户分页
+     *
+     * 前端 SelectMemberDrawer 用这个接口做主列表：
+     * - 支持按部门过滤（可选级联子部门）
+     * - 支持关键字模糊搜索（账号/姓名/手机号）
+     * - 支持排除已选择的用户
+     * - 支持按用户类型过滤（看你怎么定义 userType）
+     */
+    @GetMapping("/selector/page")
+    public Result<IPage<SysUser>> selectorPage(
+            @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
+            @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize,
+            @RequestParam(name = "departId", required = false) String departId,
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "userType", required = false) String userType,
+            @RequestParam(name = "excludeUserIds", required = false) String excludeUserIds,
+            @RequestParam(name = "includeChildDept", required = false, defaultValue = "true") boolean includeChildDept
+    ) {
+        Page<SysUser> page = new Page<>(pageNo, pageSize);
+        LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<>();
+
+        // 1. 关键字：账号 / 姓名 / 手机号
+        if (StringUtils.isNotBlank(keyword)) {
+            query.and(q -> q.like(SysUser::getUsername, keyword)
+                    .or().like(SysUser::getRealname, keyword)
+                    .or().like(SysUser::getPhone, keyword));
+        }
+
+        // 2. 用户类型（你可以按自己业务映射到 userIdentity / userType 等字段）
+        if (StringUtils.isNotBlank(userType)) {
+            // 举例这里按 userIdentity 过滤，你根据实际字段改一下就行
+            try {
+                Integer identity = Integer.valueOf(userType);
+                query.eq(SysUser::getUserIdentity, identity);
+            } catch (NumberFormatException e) {
+                log.warn("selectorPage userType [{}] 无法转换为 Integer，忽略该条件", userType);
+            }
+        }
+
+        // 3. 逻辑删除过滤
+        query.eq(SysUser::getDelFlag, 0);
+
+        // 4. 排除已选中的用户
+        if (StringUtils.isNotBlank(excludeUserIds)) {
+            List<String> excludeIdList = Arrays.stream(excludeUserIds.split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::isNotBlank)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (!excludeIdList.isEmpty()) {
+                query.notIn(SysUser::getId, excludeIdList);
+            }
+        }
+
+        // 5. 按部门过滤（支持是否包含子部门）
+        if (StringUtils.isNotBlank(departId)) {
+            List<String> userIds = sysUserDepartService.listUserIdsByDepart(departId, includeChildDept);
+            if (userIds == null || userIds.isEmpty()) {
+                // 当前部门下一个人都没有，直接返回空分页
+                return Result.OK(new Page<>());
+            }
+            query.in(SysUser::getId, userIds);
+        }
+
+        // 6. 排序
+        query.orderByAsc(SysUser::getRealname);
+
+        IPage<SysUser> resultPage = sysUserService.page(page, query);
+        return Result.OK(resultPage);
+    }
+
+    /**
+     * 通用选人控件 - 根据ID批量查询用户（用于预览区）
+     */
+    @GetMapping("/selector/byIds")
+    public Result<List<SysUser>> selectorByIds(@RequestParam("userIds") String userIds) {
+        if (StringUtils.isBlank(userIds)) {
+            return Result.OK(Collections.emptyList());
+        }
+        List<String> idList = Arrays.stream(userIds.split(","))
+                .map(String::trim)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+        if (idList.isEmpty()) {
+            return Result.OK(Collections.emptyList());
+        }
+        List<SysUser> list = (List<SysUser>) sysUserService.listByIds(idList);
+        return Result.OK(list);
+    }
+
+    /**
      * 获取系统用户数据（查询全部用户，不做租户隔离）
      *
      * @param user
@@ -588,12 +679,13 @@ public class SysUserController {
             @RequestParam(name="realname",required=false) String realname,
             @RequestParam(name="username",required=false) String username,
             @RequestParam(name="isMultiTranslate",required=false) String isMultiTranslate,
-            @RequestParam(name="id",required = false) String id) {
+            @RequestParam(name="id",required = false) String id,
+            @RequestParam(required = false,name="userType") Integer userType) {
         //update-begin-author:taoyan date:2022-7-14 for: VUEN-1702【禁止问题】sql注入漏洞
         String[] arr = new String[]{departId, realname, username, id};
         SqlInjectionUtil.filterContent(arr, SymbolConstant.SINGLE_QUOTATION_MARK);
         //update-end-author:taoyan date:2022-7-14 for: VUEN-1702【禁止问题】sql注入漏洞
-        IPage<SysUser> pageList = sysUserDepartService.queryDepartUserPageList(departId, username, realname, pageSize, pageNo,id,isMultiTranslate);
+        IPage<SysUser> pageList = sysUserDepartService.queryDepartUserPageList(departId, username, realname, pageSize, pageNo,id,isMultiTranslate,userType);
         return Result.OK(pageList);
     }
 

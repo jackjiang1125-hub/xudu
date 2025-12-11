@@ -84,7 +84,10 @@ public class SysDepartController {
 				if(StringUtils.isNotBlank(departIds)){
 					List<SysDepartTreeModel> list = sysDepartService.queryMyDeptTreeList(departIds);
 					result.setResult(list);
-				}
+				}else{
+                    List<SysDepartTreeModel> list = sysDepartService.queryMyDeptTreeList(null);
+                    result.setResult(list);
+                }
 				//update-end--Author:liusq  Date:20210624  for:部门查询ids为空后的前端显示问题 issues/I3UD06
 				result.setMessage(CommonConstant.USER_IDENTITY_2.toString());
 				result.setSuccess(true);

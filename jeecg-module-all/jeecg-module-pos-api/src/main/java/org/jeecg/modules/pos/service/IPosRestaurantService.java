@@ -1,24 +1,22 @@
 package org.jeecg.modules.pos.service;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import org.jeecg.common.system.base.service.JeecgService;
-import org.jeecg.modules.pos.entity.PosRestaurant;
 import org.jeecg.modules.pos.vo.PosRestaurantVO;
+import org.jeecg.modules.pos.request.PosRestaurantQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 
-import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 餐厅信息服务接口
  */
-public interface IPosRestaurantService extends JeecgService<PosRestaurant> {
+public interface IPosRestaurantService {
 
     /**
      * 分页查询餐厅信息
      */
-    IPage<PosRestaurantVO> pageList(String restaurantName, String restaurantCode, String category,
-                                  String diningServiceType, Date createTimeStart, Date createTimeEnd,
-                                  Integer pageNo, Integer pageSize);
+    PageResult<PosRestaurantVO> list(PosRestaurantQuery query, PageRequest pageRequest, Map<String, String[]> queryParam);
 
     /**
      * 根据ID查询餐厅详情

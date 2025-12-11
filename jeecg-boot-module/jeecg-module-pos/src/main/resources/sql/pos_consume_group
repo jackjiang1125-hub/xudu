@@ -1,0 +1,22 @@
+CREATE TABLE `pos_consume_group` (
+  `id`              varchar(32)  NOT NULL COMMENT '主键ID，JeecgEntity',
+  `create_by`       varchar(32)  DEFAULT NULL,
+  `create_time`     datetime     DEFAULT NULL,
+  `update_by`       varchar(32)  DEFAULT NULL,
+  `update_time`     datetime     DEFAULT NULL,
+  `sys_org_code`    varchar(64)  DEFAULT NULL,
+
+  `group_code`      varchar(64)  NOT NULL COMMENT '人群编码',
+  `group_name`      varchar(128) NOT NULL COMMENT '人群名称',
+  `group_type`      varchar(32)  DEFAULT 'STUDENT' COMMENT '人群类型：STUDENT/TEACHER/MIXED 等',
+  `member_mode`     varchar(16)  NOT NULL COMMENT '成员来源方式：PERSON/DEPT',
+  `status`          tinyint(1)   DEFAULT 1 COMMENT '状态：0停用 1启用',
+
+  `description`     varchar(512) DEFAULT NULL COMMENT '人群说明',
+  `tags`            json         DEFAULT NULL COMMENT '标签列表',
+  `remark`          varchar(512) DEFAULT NULL COMMENT '备注',
+
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_group_code` (`group_code`),
+  KEY `idx_group_name` (`group_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消费人群表';

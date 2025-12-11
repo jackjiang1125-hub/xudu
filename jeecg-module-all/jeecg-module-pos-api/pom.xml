@@ -13,8 +13,6 @@
 
     <artifactId>jeecg-module-pos-api</artifactId>
 
-    <name>jeecg-module-pos-api</name>
-    <description>消费管理API模块</description>
 
     <dependencies>
         <dependency>

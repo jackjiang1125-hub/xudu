@@ -28,11 +28,17 @@
 		left join sys_user_depart b on b.user_id = a.id
 		left join sys_depart c on b.dep_id = c.id
 		<bind name="bindOrgCode" value="orgCode+'%'"/>
-		where a.del_flag = 0 and a.status = 1 and c.org_code like #{bindOrgCode} and a.username!='_reserve_user_external'
+		where a.del_flag = 0 and a.status = 1 and c.org_code like #{bindOrgCode}
 		<if test="username!=null and username!=''">
 			<bind name="bindUsername" value="'%'+username+'%'"/>
 			and a.username like #{bindUsername}
 		</if>
+        <if test="userType!=null and userType!=''">
+            and a.user_type  = 2
+        </if>
+        <if test="userType==null or userType==''">
+            and a.username!='_reserve_user_external'
+        </if>
 		<if test="realname!=null and realname!=''">
 		    <bind name="bindRealname" value="'%'+realname+'%'"/>
 			and a.realname like #{bindRealname}

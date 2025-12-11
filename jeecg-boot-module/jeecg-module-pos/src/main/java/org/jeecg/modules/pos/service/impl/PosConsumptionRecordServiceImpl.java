@@ -1,8 +1,5 @@
 package org.jeecg.modules.pos.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
@@ -14,15 +11,18 @@ import org.jeecg.modules.pos.mapstruct.PosConsumptionDetailMapstruct;
 import org.jeecg.modules.pos.mapstruct.PosConsumptionRecordMapstruct;
 import org.jeecg.modules.pos.service.IPosConsumptionRecordService;
 import org.jeecg.modules.pos.vo.PosConsumptionRecordVO;
-import org.jeecg.common.api.vo.Result;
+import org.jeecg.modules.pos.request.PosConsumptionRecordQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
-import java.util.Date;
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * 消费记录服务实现类
@@ -34,91 +34,62 @@ public class PosConsumptionRecordServiceImpl extends JeecgServiceImpl<PosConsump
     @Autowired
     private PosConsumptionDetailMapper consumptionDetailMapper;
 
-    @Override
-    public IPage<PosConsumptionRecordVO> pageList(String cardNo, String customerId, String customerName, String type,
-                                               String deviceCode, String deviceName, String restaurantCode,
-                                               Date consumeTimeStart, Date consumeTimeEnd,
-                                               Integer pageNo, Integer pageSize) {
-        LambdaQueryWrapper<PosConsumptionRecord> queryWrapper = new LambdaQueryWrapper<>();
-        
-        // 卡号模糊查询
-        if (StringUtils.isNotBlank(cardNo)) {
-            queryWrapper.like(PosConsumptionRecord::getCardNo, cardNo);
+    
+@Override
+public PageResult<PosConsumptionRecordVO> list(PosConsumptionRecordQuery query,
+                                               PageRequest pageRequest,
+                                               Map<String, String[]> queryParam) {
+    PosConsumptionRecordQuery actual = Optional.ofNullable(query).orElseGet(PosConsumptionRecordQuery::new);
+    long pageNo = pageRequest == null || pageRequest.getPageNo() == null ? 1L : pageRequest.getPageNo();
+    long pageSize = pageRequest == null || pageRequest.getPageSize() == null ? 10L : pageRequest.getPageSize();
+    Map<String, String[]> params = queryParam == null ? Collections.emptyMap() : queryParam;
+
+    PageResult<PosConsumptionRecordVO> page = pageByQuery(
+        actual,
+        pageNo,
+        pageSize,
+        params,
+        q -> {
+            PosConsumptionRecord entity = new PosConsumptionRecord();
+            entity.setCardNo(q.getCardNo());
+            entity.setCustomerId(q.getCustomerId());
+            entity.setCustomerName(q.getCustomerName());
+            entity.setType(q.getType());
+            entity.setDeviceCode(q.getDeviceCode());
+            entity.setDeviceName(q.getDeviceName());
+            entity.setRestaurantCode(q.getRestaurantCode());
+            return entity;
+        },
+        PosConsumptionRecordMapstruct.INSTANCE::toVO,
+        qw -> {
+            if (actual.getConsumeTimeStart() != null) {
+                qw.ge("consume_time", actual.getConsumeTimeStart());
+            }
+            if (actual.getConsumeTimeEnd() != null) {
+                qw.le("consume_time", actual.getConsumeTimeEnd());
+            }
+            qw.orderByDesc("consume_time");
         }
-        
-        // 人员编号模糊查询
-        if (StringUtils.isNotBlank(customerId)) {
-            queryWrapper.like(PosConsumptionRecord::getCustomerId, customerId);
-        }
-        
-        // 人员姓名模糊查询
-        if (StringUtils.isNotBlank(customerName)) {
-            queryWrapper.like(PosConsumptionRecord::getCustomerName, customerName);
-        }
-        
-        // 消费类型查询
-        if (StringUtils.isNotBlank(type)) {
-            queryWrapper.eq(PosConsumptionRecord::getType, type);
-        }
-        
-        // 设备序列号模糊查询
-        if (StringUtils.isNotBlank(deviceCode)) {
-            queryWrapper.like(PosConsumptionRecord::getDeviceCode, deviceCode);
-        }
-        
-        // 设备名称模糊查询
-        if (StringUtils.isNotBlank(deviceName)) {
-            queryWrapper.like(PosConsumptionRecord::getDeviceName, deviceName);
-        }
-        
-        // 餐厅编码模糊查询
-        if (StringUtils.isNotBlank(restaurantCode)) {
-            queryWrapper.like(PosConsumptionRecord::getRestaurantCode, restaurantCode);
-        }
-        
-        // 消费时间范围查询
-        if (consumeTimeStart != null) {
-            queryWrapper.ge(PosConsumptionRecord::getConsumeTime, consumeTimeStart);
-        }
-        if (consumeTimeEnd != null) {
-            queryWrapper.le(PosConsumptionRecord::getConsumeTime, consumeTimeEnd);
-        }
-        
-        // 按消费时间降序排序
-        queryWrapper.orderByDesc(PosConsumptionRecord::getConsumeTime);
-        
-        // 分页查询
-        Page<PosConsumptionRecord> page = new Page<>(pageNo, pageSize);
-        IPage<PosConsumptionRecord> pageResult = this.page(page, queryWrapper);
-        
-        // 转换为VO
-        try {
-            return pageResult.convert(entity -> {
-                PosConsumptionRecordVO vo = PosConsumptionRecordMapstruct.INSTANCE.toVO(entity);
-                // 对于商品类型的消费记录，加载明细
-                if (entity != null && "product".equals(entity.getType())) {
+    );
+
+        if (page.getRecords() != null) {
+            page.getRecords().forEach(vo -> {
+                if (vo != null && "product".equals(vo.getType())) {
                     try {
-                        List<PosConsumptionDetail> details = consumptionDetailMapper.selectByRecordId(entity.getId());
+                        List<PosConsumptionDetail> details = consumptionDetailMapper.selectByRecordId(vo.getId());
                         if (details != null && !details.isEmpty()) {
                             vo.setDetails(PosConsumptionDetailMapstruct.INSTANCE.toVOList(details));
                         }
                     } catch (Exception e) {
-                        log.error("加载消费记录明细失败: {}", entity.getId(), e);
-                        // 明细加载失败不影响主记录展示
+                        log.error("加载消费记录明细失败: {}", vo.getId(), e);
                     }
                 }
-                return vo;
             });
-        } catch (Exception e) {
-            log.error("转换消费记录VO失败", e);
-            // 如果转换失败，返回空数据
-            Page<PosConsumptionRecordVO> emptyPage = new Page<>(pageNo, pageSize);
-            emptyPage.setTotal(0);
-            return emptyPage;
         }
-    }
+        return page;
+}
 
-    @Override
+@Override
     public PosConsumptionRecordVO getDetailById(String id) {
         try {
             if (id == null || id.trim().isEmpty()) {

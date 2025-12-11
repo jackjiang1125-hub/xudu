@@ -1,21 +1,23 @@
 package org.jeecg.modules.pos.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.jeecg.modules.pos.entity.PosProductCategory;
 import org.jeecg.modules.pos.mapper.PosProductCategoryMapper;
 import org.jeecg.modules.pos.mapstruct.PosProductCategoryMapstruct;
 import org.jeecg.modules.pos.service.IPosProductCategoryService;
 import org.jeecg.modules.pos.vo.PosProductCategoryVO;
+import org.jeecg.modules.pos.request.PosProductCategoryQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -26,45 +28,37 @@ import java.util.stream.Collectors;
 public class PosProductCategoryServiceImpl extends JeecgServiceImpl<PosProductCategoryMapper, PosProductCategory> implements IPosProductCategoryService {
 
     @Override
-    public IPage<PosProductCategoryVO> pageList(String categoryName, String categoryCode, String status,
-                                              Date createTimeStart, Date createTimeEnd,
-                                              Integer pageNo, Integer pageSize) {
-        LambdaQueryWrapper<PosProductCategory> queryWrapper = new LambdaQueryWrapper<>();
-        
-        // 分类名称或别名模糊查询
-        if (StringUtils.isNotBlank(categoryName)) {
-            queryWrapper.and(wrapper -> wrapper.like(PosProductCategory::getCategoryName, categoryName)
-                                              .or().like(PosProductCategory::getAlias, categoryName));
-        }
-        
-        // 分类编号模糊查询
-        if (StringUtils.isNotBlank(categoryCode)) {
-            queryWrapper.like(PosProductCategory::getCategoryCode, categoryCode);
-        }
-        
-        // 状态查询
-        if (StringUtils.isNotBlank(status)) {
-            queryWrapper.eq(PosProductCategory::getStatus, status);
-        }
-        
-        // 创建时间范围查询
-        if (createTimeStart != null) {
-            queryWrapper.ge(PosProductCategory::getCreateTime, createTimeStart);
-        }
-        if (createTimeEnd != null) {
-            queryWrapper.le(PosProductCategory::getCreateTime, createTimeEnd);
-        }
-        
-        // 按排序号和创建时间排序
-        queryWrapper.orderByAsc(PosProductCategory::getDisplayOrder)
-                    .orderByDesc(PosProductCategory::getCreateTime);
-        
-        // 分页查询
-        Page<PosProductCategory> page = new Page<>(pageNo, pageSize);
-        IPage<PosProductCategory> pageResult = this.page(page, queryWrapper);
-        
-        // 转换为VO
-        return pageResult.convert(entity -> PosProductCategoryMapstruct.INSTANCE.toVO(entity));
+    public PageResult<PosProductCategoryVO> list(PosProductCategoryQuery query,
+                                                 PageRequest pageRequest,
+                                                 Map<String, String[]> queryParam) {
+        PosProductCategoryQuery actual = Optional.ofNullable(query).orElseGet(PosProductCategoryQuery::new);
+        long pageNo = pageRequest == null || pageRequest.getPageNo() == null ? 1L : pageRequest.getPageNo();
+        long pageSize = pageRequest == null || pageRequest.getPageSize() == null ? 10L : pageRequest.getPageSize();
+        Map<String, String[]> params = queryParam == null ? Map.of() : queryParam;
+
+        return pageByQuery(
+            actual,
+            pageNo,
+            pageSize,
+            params,
+            q -> {
+                PosProductCategory entity = new PosProductCategory();
+                entity.setCategoryName(q.getCategoryName());
+                entity.setCategoryCode(q.getCategoryCode());
+                entity.setStatus(q.getStatus());
+                return entity;
+            },
+            PosProductCategoryMapstruct.INSTANCE::toVO,
+            qw -> {
+                if (actual.getCreateTimeStart() != null) {
+                    qw.ge("create_time", actual.getCreateTimeStart());
+                }
+                if (actual.getCreateTimeEnd() != null) {
+                    qw.le("create_time", actual.getCreateTimeEnd());
+                }
+                qw.orderByAsc("display_order").orderByDesc("create_time");
+            }
+        );
     }
 
     @Override

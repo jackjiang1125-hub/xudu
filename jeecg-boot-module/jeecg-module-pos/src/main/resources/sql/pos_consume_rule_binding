@@ -1,0 +1,20 @@
+CREATE TABLE `pos_consume_rule_binding` (
+  `id`           varchar(32) NOT NULL COMMENT '主键ID，JeecgEntity',
+  `create_by`    varchar(32) DEFAULT NULL,
+  `create_time`  datetime    DEFAULT NULL,
+  `update_by`    varchar(32) DEFAULT NULL,
+  `update_time`  datetime    DEFAULT NULL,
+  `sys_org_code` varchar(64) DEFAULT NULL,
+
+  `rule_id`      varchar(32) NOT NULL COMMENT '规则ID，关联 pos_consume_rule.id',
+  `bind_type`    varchar(16) NOT NULL COMMENT '绑定类型：PERSON/DEPT/GROUP',
+  `target_id`    varchar(32) NOT NULL COMMENT '绑定对象ID：账户ID/部门ID/人群ID',
+  `target_name`  varchar(128) DEFAULT NULL COMMENT '绑定对象名称快照',
+  `target_extra` json        DEFAULT NULL COMMENT '额外快照信息（部门路径、人群编码等）',
+  `remark`       varchar(512) DEFAULT NULL COMMENT '备注',
+
+  PRIMARY KEY (`id`),
+  KEY `idx_rule_id` (`rule_id`),
+  KEY `idx_bind_type` (`bind_type`),
+  UNIQUE KEY `uk_rule_target` (`rule_id`,`bind_type`,`target_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消费规则绑定表';

@@ -152,7 +152,7 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
 	 * @return
 	 */
 	@Override
-	public IPage<SysUser> queryDepartUserPageList(String departId, String username, String realname, int pageSize, int pageNo,String id,String isMultiTranslate) {
+	public IPage<SysUser> queryDepartUserPageList(String departId, String username, String realname, int pageSize, int pageNo,String id,String isMultiTranslate,Integer userType) {
 		IPage<SysUser> pageList = null;
 		// 部门ID不存在 直接查询用户表即可
 		Page<SysUser> page = new Page<SysUser>(pageNo, pageSize);
@@ -171,6 +171,12 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
 					query.like(SysUser::getUsername, username);
 				}
 			}
+
+            if(oConvertUtils.isNotEmpty(userType)){
+                query.eq(SysUser::getUserType, 2);
+            }else{
+                query.ne(SysUser::getUsername,"_reserve_user_external");
+            }
 			//update-end---author:liusq ---date:20231215  for：逗号分割多个用户翻译问题------------
             //update-begin---author:wangshuai ---date:20220608  for：[VUEN-1238]邮箱回复时，发送到显示的为用户id------------
             if(oConvertUtils.isNotEmpty(id)){
@@ -186,7 +192,7 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
             }
             //update-end---author:wangshuai ---date:20220608  for：[VUEN-1238]邮箱回复时，发送到显示的为用户id------------
             //update-begin---author:wangshuai ---date:20220902  for：[VUEN-2121]临时用户不能直接显示------------
-            query.ne(SysUser::getUsername,"_reserve_user_external");
+
             //update-end---author:wangshuai ---date:20220902  for：[VUEN-2121]临时用户不能直接显示------------
 
 			//------------------------------------------------------------------------------------------------
@@ -205,7 +211,7 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
 		}else{
 			// 有部门ID 需要走自定义sql
 			SysDepart sysDepart = sysDepartService.getById(departId);
-			pageList = this.baseMapper.queryDepartUserPageList(page, sysDepart.getOrgCode(), username, realname);
+			pageList = this.baseMapper.queryDepartUserPageList(page, sysDepart.getOrgCode(), username, realname,userType);
 		}
 		List<SysUser> userList = pageList.getRecords();
 		if(userList!=null && userList.size()>0){
@@ -367,5 +373,55 @@ public class SysUserDepartServiceImpl extends ServiceImpl<SysUserDepartMapper, S
 		);
 		return res;
 	}
+
+    /**
+     * 根据部门ID查询用户ID列表
+     *
+     * 逻辑：
+     * 1. 查出该部门本身的 orgCode
+     * 2. 如果需要包含子部门，则通过 orgCode 前缀匹配查出所有子部门
+     * 3. 用所有部门ID到 sys_user_depart 里查 userId
+     */
+    @Override
+    public List<String> listUserIdsByDepart(String departId, boolean includeChild) {
+        if (StringUtils.isBlank(departId)) {
+            return Collections.emptyList();
+        }
+
+        SysDepart root = sysDepartService.getById(departId);
+        if (root == null) {
+            log.warn("listUserIdsByDepart departId[{}] 不存在");
+            return Collections.emptyList();
+        }
+
+        // 1. 计算需要参与过滤的部门ID集合
+        List<String> deptIds;
+        if (includeChild) {
+            // 通过 orgCode 做前缀匹配，拿到所有子部门
+            String orgCode = root.getOrgCode();
+            List<SysDepart> all = sysDepartService.list(
+                    new LambdaQueryWrapper<SysDepart>()
+                            .likeRight(SysDepart::getOrgCode, orgCode)
+            );
+            deptIds = all.stream().map(SysDepart::getId).collect(Collectors.toList());
+        } else {
+            deptIds = Collections.singletonList(departId);
+        }
+
+        if (deptIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 2. 在用户-部门关系表中查用户ID
+        List<SysUserDepart> relations = this.list(
+                new LambdaQueryWrapper<SysUserDepart>()
+                        .in(SysUserDepart::getDepId, deptIds)
+        );
+
+        return relations.stream()
+                .map(SysUserDepart::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+    }
 
 }

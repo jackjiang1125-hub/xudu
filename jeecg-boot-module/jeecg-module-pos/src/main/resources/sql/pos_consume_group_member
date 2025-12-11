@@ -1,0 +1,20 @@
+CREATE TABLE `pos_consume_group_member` (
+  `id`           varchar(32) NOT NULL COMMENT '主键ID，JeecgEntity',
+  `create_by`    varchar(32) DEFAULT NULL,
+  `create_time`  datetime    DEFAULT NULL,
+  `update_by`    varchar(32) DEFAULT NULL,
+  `update_time`  datetime    DEFAULT NULL,
+  `sys_org_code` varchar(64) DEFAULT NULL,
+
+  `group_id`     varchar(32) NOT NULL COMMENT '消费人群ID，关联 pos_consume_group.id',
+  `member_type`  varchar(16) NOT NULL COMMENT '成员类型：ACCOUNT/DEPT',
+  `member_id`    varchar(32) NOT NULL COMMENT '成员ID：账号ID 或 部门ID',
+  `member_name`  varchar(64) DEFAULT NULL COMMENT '成员名称快照',
+  `dept_id`      varchar(32) DEFAULT NULL COMMENT '所属部门ID（冗余，便于查询）',
+  `dept_name`    varchar(64) DEFAULT NULL COMMENT '所属部门名称（冗余）',
+  `ext_json`     json        DEFAULT NULL COMMENT '额外信息快照',
+
+  PRIMARY KEY (`id`),
+  KEY `idx_group_id` (`group_id`),
+  UNIQUE KEY `uk_group_member` (`group_id`,`member_type`,`member_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消费人群成员表';

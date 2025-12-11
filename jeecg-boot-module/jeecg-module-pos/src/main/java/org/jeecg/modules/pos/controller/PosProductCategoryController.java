@@ -1,23 +1,21 @@
 package org.jeecg.modules.pos.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.system.base.controller.JeecgController;
 import org.jeecg.common.system.vo.LoginUser;
-import org.jeecg.modules.pos.entity.PosProductCategory;
 import org.jeecg.modules.pos.service.IPosProductCategoryService;
 import org.jeecg.modules.pos.vo.PosProductCategoryVO;
+import org.jeecg.modules.pos.request.PosProductCategoryQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -27,7 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/pos/productCategory")
 @Slf4j
-public class PosProductCategoryController extends JeecgController<PosProductCategory, IPosProductCategoryService> {
+public class PosProductCategoryController {
 
     @Autowired
     private IPosProductCategoryService productCategoryService;
@@ -38,16 +36,11 @@ public class PosProductCategoryController extends JeecgController<PosProductCate
     @AutoLog(value = "商品分类-分页列表查询")
     @GetMapping("/list")
     @Operation(summary = "分页查询商品分类")
-    public Result<IPage<PosProductCategoryVO>> list(@RequestParam(name = "categoryName", required = false) String categoryName,
-                                                  @RequestParam(name = "categoryCode", required = false) String categoryCode,
-                                                  @RequestParam(name = "status", required = false) String status,
-                                                  @RequestParam(name = "createTimeStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date createTimeStart,
-                                                  @RequestParam(name = "createTimeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date createTimeEnd,
-                                                  @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-                                                  @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+    public Result<PageResult<PosProductCategoryVO>> list(PosProductCategoryQuery query,
+                                                         PageRequest pageRequest,
+                                                         HttpServletRequest req) {
         try {
-            IPage<PosProductCategoryVO> page = productCategoryService.pageList(categoryName, categoryCode, status,
-                    createTimeStart, createTimeEnd, pageNo, pageSize);
+            PageResult<PosProductCategoryVO> page = productCategoryService.list(query, pageRequest, req.getParameterMap());
             return Result.OK(page);
         } catch (Exception e) {
             log.error("查询商品分类列表失败", e);

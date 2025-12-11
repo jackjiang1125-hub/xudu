@@ -1,8 +1,5 @@
 package org.jeecg.modules.pos.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.system.base.service.impl.JeecgServiceImpl;
@@ -11,12 +8,18 @@ import org.jeecg.modules.pos.mapper.PosRestaurantMapper;
 import org.jeecg.modules.pos.mapstruct.PosRestaurantMapstruct;
 import org.jeecg.modules.pos.service.IPosRestaurantService;
 import org.jeecg.modules.pos.vo.PosRestaurantVO;
+import org.jeecg.modules.pos.request.PosRestaurantQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 /**
  * 餐厅信息服务实现类
@@ -26,48 +29,38 @@ import java.util.stream.Collectors;
 public class PosRestaurantServiceImpl extends JeecgServiceImpl<PosRestaurantMapper, PosRestaurant> implements IPosRestaurantService {
 
     @Override
-    public IPage<PosRestaurantVO> pageList(String restaurantName, String restaurantCode, String category,
-                                         String diningServiceType, Date createTimeStart, Date createTimeEnd,
-                                         Integer pageNo, Integer pageSize) {
-        LambdaQueryWrapper<PosRestaurant> queryWrapper = new LambdaQueryWrapper<>();
-        
-        // 餐厅名称模糊查询
-        if (StringUtils.isNotBlank(restaurantName)) {
-            queryWrapper.like(PosRestaurant::getRestaurantName, restaurantName);
-        }
-        
-        // 餐厅编码模糊查询
-        if (StringUtils.isNotBlank(restaurantCode)) {
-            queryWrapper.like(PosRestaurant::getRestaurantCode, restaurantCode);
-        }
-        
-        // 经营模式查询
-        if (StringUtils.isNotBlank(category)) {
-            queryWrapper.eq(PosRestaurant::getCategory, category);
-        }
-        
-        // 餐厅类型查询
-        if (StringUtils.isNotBlank(diningServiceType)) {
-            queryWrapper.eq(PosRestaurant::getDiningServiceType, diningServiceType);
-        }
-        
-        // 创建时间范围查询
-        if (createTimeStart != null) {
-            queryWrapper.ge(PosRestaurant::getCreateTime, createTimeStart);
-        }
-        if (createTimeEnd != null) {
-            queryWrapper.le(PosRestaurant::getCreateTime, createTimeEnd);
-        }
-        
-        // 按创建时间排序
-        queryWrapper.orderByDesc(PosRestaurant::getCreateTime);
-        
-        // 分页查询
-        Page<PosRestaurant> page = new Page<>(pageNo, pageSize);
-        IPage<PosRestaurant> pageResult = this.page(page, queryWrapper);
-        
-        // 转换为VO
-        return pageResult.convert(entity -> PosRestaurantMapstruct.INSTANCE.toVO(entity));
+    public PageResult<PosRestaurantVO> list(PosRestaurantQuery query,
+                                            PageRequest pageRequest,
+                                            Map<String, String[]> queryParam) {
+        PosRestaurantQuery actual = Optional.ofNullable(query).orElseGet(PosRestaurantQuery::new);
+        long pageNo = pageRequest == null || pageRequest.getPageNo() == null ? 1L : pageRequest.getPageNo();
+        long pageSize = pageRequest == null || pageRequest.getPageSize() == null ? 10L : pageRequest.getPageSize();
+        Map<String, String[]> params = queryParam == null ? Map.of() : queryParam;
+
+        return pageByQuery(
+            actual,
+            pageNo,
+            pageSize,
+            params,
+            q -> {
+                PosRestaurant entity = new PosRestaurant();
+                entity.setRestaurantName(q.getRestaurantName());
+                entity.setRestaurantCode(q.getRestaurantCode());
+                entity.setCategory(q.getCategory());
+                entity.setDiningServiceType(q.getDiningServiceType());
+                return entity;
+            },
+            PosRestaurantMapstruct.INSTANCE::toVO,
+            qw -> {
+                if (actual.getCreateTimeStart() != null) {
+                    qw.ge("create_time", actual.getCreateTimeStart());
+                }
+                if (actual.getCreateTimeEnd() != null) {
+                    qw.le("create_time", actual.getCreateTimeEnd());
+                }
+                qw.orderByDesc("create_time");
+            }
+        );
     }
 
     @Override

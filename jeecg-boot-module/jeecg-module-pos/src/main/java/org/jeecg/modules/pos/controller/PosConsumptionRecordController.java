@@ -1,20 +1,19 @@
 package org.jeecg.modules.pos.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.system.base.controller.JeecgController;
-import org.jeecg.modules.pos.entity.PosConsumptionRecord;
 import org.jeecg.modules.pos.service.IPosConsumptionRecordService;
 import org.jeecg.modules.pos.vo.PosConsumptionRecordVO;
+import org.jeecg.modules.pos.request.PosConsumptionRecordQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * 消费记录管理控制器
@@ -23,7 +22,7 @@ import java.util.Date;
 @RestController
 @RequestMapping("/pos/consumptionRecord")
 @Slf4j
-public class PosConsumptionRecordController extends JeecgController<PosConsumptionRecord, IPosConsumptionRecordService> {
+public class PosConsumptionRecordController {
 
     @Autowired
     private IPosConsumptionRecordService consumptionRecordService;
@@ -34,20 +33,11 @@ public class PosConsumptionRecordController extends JeecgController<PosConsumpti
     @AutoLog(value = "消费记录-分页列表查询")
     @GetMapping("/list")
     @Operation(summary = "分页查询消费记录")
-    public Result<IPage<PosConsumptionRecordVO>> list(@RequestParam(name = "cardNo", required = false) String cardNo,
-                                                   @RequestParam(name = "customerId", required = false) String customerId,
-                                                   @RequestParam(name = "customerName", required = false) String customerName,
-                                                   @RequestParam(name = "type", required = false) String type,
-                                                   @RequestParam(name = "deviceCode", required = false) String deviceCode,
-                                                   @RequestParam(name = "deviceName", required = false) String deviceName,
-                                                   @RequestParam(name = "restaurantCode", required = false) String restaurantCode,
-                                                   @RequestParam(name = "consumeTimeStart", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date consumeTimeStart,
-                                                   @RequestParam(name = "consumeTimeEnd", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") Date consumeTimeEnd,
-                                                   @RequestParam(name = "pageNo", defaultValue = "1") Integer pageNo,
-                                                   @RequestParam(name = "pageSize", defaultValue = "10") Integer pageSize) {
+    public Result<PageResult<PosConsumptionRecordVO>> list(PosConsumptionRecordQuery query,
+                                                           PageRequest pageRequest,
+                                                           HttpServletRequest req) {
         try {
-            IPage<PosConsumptionRecordVO> page = consumptionRecordService.pageList(cardNo, customerId, customerName, type,
-                    deviceCode, deviceName, restaurantCode, consumeTimeStart, consumeTimeEnd, pageNo, pageSize);
+            PageResult<PosConsumptionRecordVO> page = consumptionRecordService.list(query, pageRequest, req.getParameterMap());
             return Result.OK(page);
         } catch (Exception e) {
             log.error("查询消费记录列表失败", e);

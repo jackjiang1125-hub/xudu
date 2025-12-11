@@ -1,24 +1,22 @@
 package org.jeecg.modules.pos.service;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import org.jeecg.common.system.base.service.JeecgService;
-import org.jeecg.modules.pos.entity.PosProductCategory;
 import org.jeecg.modules.pos.vo.PosProductCategoryVO;
+import org.jeecg.modules.pos.request.PosProductCategoryQuery;
+import org.jeecgframework.boot.common.vo.PageRequest;
+import org.jeecgframework.boot.common.vo.PageResult;
 
-import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 商品分类Service接口
  */
-public interface IPosProductCategoryService extends JeecgService<PosProductCategory> {
+public interface IPosProductCategoryService {
 
     /**
      * 分页查询商品分类
      */
-    IPage<PosProductCategoryVO> pageList(String categoryName, String categoryCode, String status,
-                                        Date createTimeStart, Date createTimeEnd,
-                                        Integer pageNo, Integer pageSize);
+    PageResult<PosProductCategoryVO> list(PosProductCategoryQuery query, PageRequest pageRequest, Map<String, String[]> queryParam);
 
     /**
      * 根据ID查询详情
